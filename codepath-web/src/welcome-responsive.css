@@ -1,0 +1,29 @@
+.welcome-page {
+  grid-template-columns: minmax(0, 1.08fr) minmax(390px, .92fr);
+  padding: 18px;
+}
+
+.welcome-visual {
+  display: flex;
+  min-height: calc(100vh - 36px);
+  padding: 32px 38px;
+}
+
+.welcome-auth {
+  padding: 34px 4vw;
+}
+
+@media (max-width: 880px) {
+  .welcome-page {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+
+  .welcome-visual {
+    display: none;
+  }
+
+  .welcome-auth {
+    min-height: 100vh;
+  }
+}

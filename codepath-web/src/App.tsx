@@ -10,6 +10,7 @@ import type { Course, HistoryItem, Problem, PublicExample, Submission, User } fr
 import { DiscussPage, InterviewPage } from "./CommunityPages";
 import { SelfPracticePage } from "./SelfPracticePage";
 import { AiWidget } from "./AiWidget";
+import { WelcomePage } from "./WelcomePage";
 
 type PageName = "practice"|"discuss"|"interview"|"self-practice";
 
@@ -66,6 +67,7 @@ function App() {
   const [page, setPageState] = useState<PageName>(initialPage);
   const setPage = (next:PageName) => { location.hash=next; setPageState(next); };
   const [user, setUser] = useState<User | null>(authStore.user());
+  const [guestEntered, setGuestEntered] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState<number>();
@@ -138,10 +140,12 @@ function App() {
     catch (e) { setHint(e instanceof Error ? e.message : "提示请求失败"); }
     finally { setHintLoading(0); }
   }
-  function logout() { authStore.clear(); setUser(null); setHistory([]); }
+  function logout() { authStore.clear(); setUser(null); setGuestEntered(false); setHistory([]); }
   const passed = submission && submission.totalCount > 0 && submission.passedCount === submission.totalCount;
   const coachResult = guestRun ? runResult : submission;
   const activeDiff = useMemo(() => problem ? difficulty(problem.difficulty) : ["", ""], [problem]);
+
+  if (!user && !guestEntered) return <WelcomePage onGuest={()=>setGuestEntered(true)} onSuccess={u=>{setUser(u);if(problem)api.history(problem.id).then(p=>setHistory(p.content));}}/>;
 
   return <div className="app-shell">
     <header>
