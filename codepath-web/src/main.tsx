@@ -7,6 +7,8 @@ import "./responsive.css";
 import "./examples.css";
 import "./self-practice.css";
 import "./ai-widget.css";
+import "./welcome.css";
+import "./welcome-responsive.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App /></React.StrictMode>
