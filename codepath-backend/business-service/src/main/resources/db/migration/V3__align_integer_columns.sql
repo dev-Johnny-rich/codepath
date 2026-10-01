@@ -1,0 +1,8 @@
+ALTER TABLE knowledge_point
+    MODIFY COLUMN difficulty INT NOT NULL DEFAULT 1;
+
+ALTER TABLE problem
+    MODIFY COLUMN difficulty INT NOT NULL DEFAULT 1;
+
+ALTER TABLE diagnosis
+    MODIFY COLUMN hint_level INT NOT NULL DEFAULT 1;

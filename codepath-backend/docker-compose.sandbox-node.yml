@@ -1,0 +1,17 @@
+services:
+  sandbox-worker:
+    build: ./sandbox-worker
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BUSINESS_API_URL: ${BUSINESS_API_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      SANDBOX_PYTHON_IMAGE: ${SANDBOX_PYTHON_IMAGE:-python:3.12-alpine}
+      SANDBOX_JAVA_IMAGE: ${SANDBOX_JAVA_IMAGE:-eclipse-temurin:21-jdk-alpine}
+      SANDBOX_CPP_IMAGE: ${SANDBOX_CPP_IMAGE:-gcc:14-bookworm}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
+      EXECUTION_DLQ: ${EXECUTION_DLQ:-codepath:submission:dlq}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

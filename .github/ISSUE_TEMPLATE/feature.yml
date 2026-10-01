@@ -1,0 +1,26 @@
+name: 功能需求
+description: 提交一个可分配、可验收的功能任务
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标
+      description: 用户要解决什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 实现范围
+      description: 列出需要修改的页面、接口或服务。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 用可检查的条件描述完成状态。
+    validations:
+      required: true

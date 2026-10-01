@@ -1,0 +1,33 @@
+# Secrets and local configuration
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Frontend build and dependencies
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+codepath-web/vite.config.js
+codepath-web/vite.config.d.ts
+
+# Java build output
+**/target/
+*.class
+
+# Python caches and environments
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+
+# IDE, operating-system and local logs
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+*.tmp
+*.swp

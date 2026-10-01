@@ -1,0 +1,34 @@
+export type User = { id: number; email: string; username: string; displayName: string; role: string };
+export type Course = { id: number; code: string; name: string; description?: string };
+export type Problem = {
+  id: number; courseId: number; title: string; description: string; inputDescription?: string;
+  outputDescription?: string; starterCode?: string; language: string; difficulty: number;
+  timeLimitMs: number; memoryLimitMb: number;
+};
+export type PublicExample = { id:number; input:string; expectedOutput:string };
+export type Diagnosis = {
+  errorType: string; rootCause: string; explanation: string; confidence?: number;
+  hintLevel: number; nextAction?: string; modelName?: string;
+};
+export type TestResult = {
+  id: number; testCaseId: number; status: string; actualOutput?: string; stderr?: string;
+  runtimeMs?: number; memoryKb?: number;
+};
+export type Submission = {
+  id: number; problemId: number; language: string; status: string; passedCount: number;
+  totalCount: number; runtimeMs?: number; memoryKb?: number; errorMessage?: string;
+  createdAt: string; testResults: TestResult[]; diagnosis?: Diagnosis;
+};
+export type HistoryItem = Omit<Submission, "testResults" | "diagnosis" | "errorMessage" | "memoryKb">;
+export type Page<T> = { content: T[]; totalElements: number; totalPages: number; number: number };
+export type DiscussionPost = {
+  id:number; title:string; content:string; tags?:string; problem_id?:number; problem_title?:string;
+  view_count:number; comment_count?:number; created_at:string; author_id:number; author_name:string;
+  author_role:string; comments?:DiscussionComment[];
+};
+export type DiscussionComment = { id:number; content:string; created_at:string; author_id:number; author_name:string; author_role:string };
+export type Assessment = {
+  id:number; problem_id:number; problem_title:string; difficulty:number; language:string; status:string;
+  passed_count:number; total_count:number; runtime_ms?:number; memory_kb?:number; error_message?:string;
+  created_at:string; error_type?:string; root_cause?:string; confidence?:number; next_action?:string; model_name?:string;
+};

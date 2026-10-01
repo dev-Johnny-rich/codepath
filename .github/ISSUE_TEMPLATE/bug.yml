@@ -1,0 +1,29 @@
+name: 缺陷报告
+description: 记录可复现的缺陷
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际现象
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: "1. 打开…\n2. 点击…\n3. 看到…"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 日志或截图
+      description: 请勿粘贴密码、Token 或 API Key。

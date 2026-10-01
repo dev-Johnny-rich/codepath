@@ -1,0 +1,58 @@
+import type { Assessment, Course, DiscussionPost, HistoryItem, Page, Problem, PublicExample, Submission, User } from "./types";
+
+const BASE = import.meta.env.VITE_API_BASE_URL || "";
+type Envelope<T> = { success: boolean; data: T; message?: string };
+
+export const authStore = {
+  token: () => localStorage.getItem("codepath_access_token"),
+  user: (): User | null => { try { return JSON.parse(localStorage.getItem("codepath_user") || "null"); } catch { return null; } },
+  save: (data: { accessToken: string; refreshToken: string; user: User }) => {
+    localStorage.setItem("codepath_access_token", data.accessToken);
+    localStorage.setItem("codepath_refresh_token", data.refreshToken);
+    localStorage.setItem("codepath_user", JSON.stringify(data.user));
+  },
+  clear: () => ["codepath_access_token", "codepath_refresh_token", "codepath_user"].forEach(k => localStorage.removeItem(k))
+};
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = authStore.token();
+  const response = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
+  });
+  const body = await response.json().catch(() => ({ success: false, message: "服务器响应异常" })) as Envelope<T>;
+  if (!response.ok || !body.success) {
+    if (response.status === 401) authStore.clear();
+    throw new Error(body.message || `请求失败 (${response.status})`);
+  }
+  return body.data;
+}
+
+export const api = {
+  courses: () => request<Course[]>("/api/v1/courses"),
+  problems: (courseId: number) => request<Problem[]>(`/api/v1/problems?courseId=${courseId}`),
+  problem: (id: number) => request<Problem>(`/api/v1/problems/${id}`),
+  examples: (id:number) => request<PublicExample[]>(`/api/v1/problems/${id}/examples`),
+  login: (account: string, password: string) => request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ account, password }) }),
+  register: (email: string, username: string, password: string, displayName: string) => request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/register", { method: "POST", body: JSON.stringify({ email, username, password, displayName }) }),
+  submit: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; status: string }>(`/api/v1/problems/${problemId}/submissions`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
+  run: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; runToken: string; status: string }>(`/api/v1/problems/${problemId}/runs`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
+  selfPractice: (language:string,sourceCode:string,stdin:string) => request<{submissionId:number;runToken:string;status:string}>("/api/v1/self-practice/runs",{method:"POST",body:JSON.stringify({language,sourceCode,stdin})}),
+  runDetail: async (id:number,runToken:string) => {
+    const response=await fetch(`${BASE}/api/v1/runs/${id}`,{headers:{"X-Run-Token":runToken}});
+    const body=await response.json() as Envelope<Submission>;
+    if(!response.ok||!body.success)throw new Error(body.message||"读取运行结果失败");
+    return body.data;
+  },
+  submission: (id: number) => request<Submission>(`/api/v1/submissions/${id}`),
+  history: (problemId?: number) => request<Page<HistoryItem>>(`/api/v1/submissions?size=20&sort=createdAt,desc${problemId ? `&problemId=${problemId}` : ""}`),
+  hint: (submissionId: number, level: number) => request<{ content: string; modelName: string }>(`/api/v1/submissions/${submissionId}/hints`, { method: "POST", body: JSON.stringify({ level, question: "请根据我的错误给出当前层级的提示" }) })
+  ,createCoachConversation: (submissionId?:number,title="AI 编程教练") => request<{id:number}>("/api/v1/coach/conversations",{method:"POST",body:JSON.stringify({submissionId:submissionId||null,title})})
+  ,sendCoachMessage: (conversationId:number,content:string) => request<{content:string;modelName:string}>(`/api/v1/coach/conversations/${conversationId}/messages`,{method:"POST",body:JSON.stringify({content})})
+  ,guestCoachMessage: (messages:{role:"user"|"assistant";content:string}[]) => request<{content:string;modelName:string}>("/api/v1/coach/guest-chat",{method:"POST",body:JSON.stringify({messages:messages.slice(-20)})})
+  ,discussions: (q="") => request<DiscussionPost[]>(`/api/v1/discussions?q=${encodeURIComponent(q)}`),
+  discussion: (id:number) => request<DiscussionPost>(`/api/v1/discussions/${id}`),
+  createDiscussion: (title:string,content:string,tags:string,problemId?:number) => request<{id:number}>("/api/v1/discussions",{method:"POST",body:JSON.stringify({title,content,tags,problemId})}),
+  comment: (id:number,content:string) => request<{id:number}>(`/api/v1/discussions/${id}/comments`,{method:"POST",body:JSON.stringify({content})}),
+  assessments: () => request<Assessment[]>("/api/v1/interview/assessments")
+};
