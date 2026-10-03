@@ -1,33 +1,56 @@
-# Secrets and local configuration
+# 环境变量文件（包含密码，不要上传）
 .env
-.env.*
-**/.env
-**/.env.*
-!.env.example
-!**/.env.example
+.env.local
+.env.*.local
 
-# Frontend build and dependencies
-**/node_modules/
-**/dist/
-**/*.tsbuildinfo
-codepath-web/vite.config.js
-codepath-web/vite.config.d.ts
+# Python 相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
 
-# Java build output
-**/target/
-*.class
-
-# Python caches and environments
-**/__pycache__/
-**/*.py[cod]
-**/.pytest_cache/
-**/.venv/
-
-# IDE, operating-system and local logs
-.idea/
+# IDE 相关
 .vscode/
-*.iml
-.DS_Store
-*.log
-*.tmp
+.idea/
 *.swp
+*.swo
+*~
+
+# 数据库相关
+*.db
+*.sqlite
+*.sqlite3
+
+# 日志文件
+*.log
+logs/
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+.cache/
+
+# Redis 数据文件
+dump.rdb
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Neo4j 数据目录（如果本地存储）
+neo4j_data/
+
+# MySQL 备份文件
+*.sql.bak
+backup/
