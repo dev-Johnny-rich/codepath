@@ -7,7 +7,14 @@ from fastapi import FastAPI, Header, HTTPException
 from app.bkt import BKTUpdateRequest, BKTUpdateResponse, update_bkt
 from app.config import settings
 from app.coach import CoachRequest, CoachResponse, coach
-from app.learning_plan import GeneratedLearningPlan, LearningPlanRequest, generate_learning_plan
+from app.learning_plan import (
+    GeneratedLearningPlan,
+    KnowledgeExplanation,
+    KnowledgeExplanationRequest,
+    LearningPlanRequest,
+    explain_knowledge,
+    generate_learning_plan,
+)
 from app.practice import (
     GeneratedPractice,
     PracticeEvaluation,
@@ -109,4 +116,18 @@ def learning_plan_generate(
         return generate_learning_plan(request)
     except Exception as exc:
         logging.exception("learning plan generation failed")
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/v1/learning-plans/explain", response_model=KnowledgeExplanation)
+def learning_plan_explain(
+    request: KnowledgeExplanationRequest,
+    x_internal_token: str = Header(default=""),
+) -> KnowledgeExplanation:
+    if x_internal_token != settings.internal_token:
+        raise HTTPException(status_code=401, detail="invalid internal token")
+    try:
+        return explain_knowledge(request)
+    except Exception as exc:
+        logging.exception("knowledge explanation failed")
         raise HTTPException(status_code=502, detail=str(exc)) from exc

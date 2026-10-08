@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/internal/submissions")
 public class InternalExecutionController {
+    public record StageRequest(SubmissionStatus status) {}
     private final SubmissionService submissionService;
     private final String internalToken;
 
@@ -34,6 +35,16 @@ public class InternalExecutionController {
             @PathVariable Long submissionId) {
         verify(token);
         submissionService.markRunning(submissionId);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{submissionId}/stage")
+    public ApiResponse<Void> stage(
+            @RequestHeader("X-Internal-Token") String token,
+            @PathVariable Long submissionId,
+            @RequestBody StageRequest request) {
+        verify(token);
+        submissionService.markStage(submissionId, request.status());
         return ApiResponse.ok(null);
     }
 

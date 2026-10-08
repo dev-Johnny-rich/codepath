@@ -222,6 +222,69 @@ public class LearningPlanService {
         return findById(userId, ((Number) owner.get("plan_id")).longValue());
     }
 
+    @Transactional(readOnly = true)
+    public KnowledgeExplanationView explain(Long userId, Long itemId) {
+        Map<String, Object> item = jdbc.sql("""
+                SELECT i.task_type,i.title AS item_title,i.description AS item_description,
+                       kp.name AS knowledge_name,kp.description AS knowledge_description,
+                       c.name AS course_name,c.language,p.current_level,
+                       COALESCE(sm.mastery,0.1500) AS mastery
+                FROM learning_plan_item i
+                JOIN learning_plan_stage st ON st.id=i.stage_id
+                JOIN learning_plan p ON p.id=st.plan_id
+                JOIN course c ON c.id=p.course_id
+                LEFT JOIN knowledge_point kp ON kp.id=i.knowledge_point_id
+                LEFT JOIN student_mastery sm ON sm.user_id=p.user_id
+                  AND sm.knowledge_point_id=i.knowledge_point_id
+                WHERE i.id=:itemId AND p.user_id=:userId AND p.status='ACTIVE'
+                """).param("itemId", itemId).param("userId", userId)
+                .query().listOfRows().stream().findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "计划任务不存在"));
+        if (!"LEARN".equals(Objects.toString(item.get("task_type")))) {
+            throw new BusinessException(HttpStatus.CONFLICT, "只有学习任务可以生成知识讲解");
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("courseName", text(item, "course_name", "编程课程"));
+        payload.put("language", text(item, "language", "Python"));
+        payload.put("currentLevel", text(item, "current_level", "BEGINNER"));
+        payload.put("itemTitle", text(item, "item_title", "知识学习"));
+        payload.put("itemDescription", text(item, "item_description", "学习本知识点。"));
+        payload.put("knowledgePointName", text(item, "knowledge_name",
+                text(item, "item_title", "知识点")));
+        payload.put("knowledgePointDescription", item.get("knowledge_description"));
+        payload.put("mastery", item.get("mastery"));
+
+        Map response;
+        try {
+            response = ai.post().uri("/v1/learning-plans/explain")
+                    .header("X-Internal-Token", internalToken).body(payload)
+                    .retrieve().body(Map.class);
+        } catch (RuntimeException unavailable) {
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "AI 知识讲解暂时不可用，请稍后重试");
+        }
+        if (response == null || !(response.get("sections") instanceof List<?> rawSections)) {
+            throw new BusinessException(HttpStatus.BAD_GATEWAY, "AI 没有返回有效的知识讲解");
+        }
+        List<ExplanationSection> sections = rawSections.stream()
+                .filter(Map.class::isInstance).map(Map.class::cast)
+                .map(section -> new ExplanationSection(
+                        text(section, "title", "知识讲解"),
+                        text(section, "content", ""),
+                        section.get("code") == null ? null : section.get("code").toString()))
+                .filter(section -> !section.content().isBlank()).toList();
+        List<String> keyPoints = response.get("keyPoints") instanceof List<?> points
+                ? points.stream().filter(Objects::nonNull).map(Object::toString)
+                    .filter(point -> !point.isBlank()).toList()
+                : List.of();
+        return new KnowledgeExplanationView(
+                text(response, "title", text(item, "item_title", "知识讲解")),
+                text(response, "overview", text(item, "item_description", "")),
+                sections, keyPoints,
+                text(response, "checkQuestion", "请用自己的话复述这个知识点。"),
+                text(response, "modelName", "deepseek-chat"));
+    }
+
     private LearningPlanView findById(Long userId, Long planId) {
         syncEvidence(userId, planId);
         Map<String, Object> plan = jdbc.sql("""
@@ -334,6 +397,11 @@ public class LearningPlanService {
                                   @Min(15) @Max(300) int minutesPerDay,
                                   @Min(1) @Max(24) int durationWeeks) {}
     public record CompletionRequest(boolean completed) {}
+    public record ExplanationSection(String title, String content, String code) {}
+    public record KnowledgeExplanationView(String title, String overview,
+                                           List<ExplanationSection> sections,
+                                           List<String> keyPoints, String checkQuestion,
+                                           String modelName) {}
     public record TrackView(Long id, String name, String language, String description) {}
     public record LearningPlanView(Long id, Long courseId, String courseName, String title, String summary,
                                    String goal, String currentLevel, int daysPerWeek, int minutesPerDay,

@@ -47,4 +47,11 @@ public class LearningPlanController {
             @RequestBody LearningPlanService.CompletionRequest request) {
         return ApiResponse.ok(service.setCompleted(principal.userId(), itemId, request.completed()));
     }
+
+    @PostMapping("/items/{itemId}/explain")
+    public ApiResponse<LearningPlanService.KnowledgeExplanationView> explain(
+            @AuthenticationPrincipal AppPrincipal principal,
+            @PathVariable Long itemId) {
+        return ApiResponse.ok(service.explain(principal.userId(), itemId));
+    }
 }

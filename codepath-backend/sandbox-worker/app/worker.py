@@ -26,6 +26,15 @@ def _get_task(client: httpx.Client, submission_id: int) -> ExecutionTask:
     return ExecutionTask.model_validate(response.json()["data"])
 
 
+def _set_stage(client: httpx.Client, submission_id: int, stage: str) -> None:
+    response = client.post(
+        f"{settings.business_api_url}/api/v1/internal/submissions/{submission_id}/stage",
+        headers=_headers(),
+        json={"status": stage},
+    )
+    response.raise_for_status()
+
+
 def run() -> None:
     queue = redis.Redis(
         host=settings.redis_host,
@@ -36,6 +45,7 @@ def run() -> None:
     executor = DockerExecutor()
     with httpx.Client(timeout=15.0) as client:
         logger.info("sandbox worker started; queue=%s", settings.queue_name)
+        executor.preload_images(lambda state, image: logger.info("sandbox image %s: %s", state, image))
         while True:
             submission_id = None
             task = None
@@ -52,7 +62,7 @@ def run() -> None:
                         f"{settings.business_api_url}/api/v1/internal/submissions/{submission_id}/started",
                         headers=_headers(),
                     ).raise_for_status()
-                result = executor.execute(task)
+                result = executor.execute(task, lambda stage: _set_stage(client, submission_id, stage))
                 client.post(
                     f"{settings.business_api_url}/api/v1/internal/submissions/{submission_id}/execution-result",
                     headers=_headers(),

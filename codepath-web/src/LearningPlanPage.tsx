@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, CalendarDays, Check, ChevronRight, CircleAlert, Clock3, LoaderCircle, RefreshCw, Sparkles, Target } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { BookOpenText, BrainCircuit, CalendarDays, Check, ChevronRight, CircleAlert, Clock3, LoaderCircle, RefreshCw, Sparkles, Target, X } from "lucide-react";
 import { api } from "./api";
-import type { AiGeneratedPractice, LearningPlan, LearningPlanItem, LearningTrack, User } from "./types";
+import type { AiGeneratedPractice, KnowledgeExplanation, LearningPlan, LearningPlanItem, LearningTrack, User } from "./types";
 import "./learning-plan.css";
+import "./plan-lessons.css";
 
 type PlanForm = {goal:string;currentLevel:string;daysPerWeek:number;minutesPerDay:number;durationWeeks:number};
 const defaults:PlanForm={goal:"系统掌握一门编程语言，并能独立完成常见编程任务",currentLevel:"BEGINNER",daysPerWeek:5,minutesPerDay:45,durationWeeks:4};
@@ -18,6 +19,8 @@ export function LearningPlanPage({user,initialCourseId,activePlan,onNeedAuth,onO
   const [generating,setGenerating]=useState(false);
   const [updating,setUpdating]=useState<number>();
   const [starting,setStarting]=useState<number>();
+  const [explaining,setExplaining]=useState<number>();
+  const [explanation,setExplanation]=useState<{itemId:number;data:KnowledgeExplanation}>();
   const [error,setError]=useState("");
   const course=tracks.find(item=>item.id===courseId);
 
@@ -57,7 +60,7 @@ export function LearningPlanPage({user,initialCourseId,activePlan,onNeedAuth,onO
   }
   function changeTrack(nextId:number){
     const next=tracks.find(item=>item.id===nextId);
-    setCourseId(nextId);setPlan(undefined);setEditing(false);setError("");
+    setCourseId(nextId);setPlan(undefined);setEditing(false);setExplanation(undefined);setError("");
     setForm({...defaults,goal:next?`系统掌握 ${next.name}，并能独立完成常见编程任务`:defaults.goal});
   }
   async function startTask(item:LearningPlanItem){
@@ -66,6 +69,14 @@ export function LearningPlanPage({user,initialCourseId,activePlan,onNeedAuth,onO
     try{onOpenGenerated(await api.generatePlanPractice(item.id));}
     catch(e){setError(e instanceof Error?e.message:"AI 专项练习生成失败");}
     finally{setStarting(undefined);}
+  }
+  async function explain(item:LearningPlanItem){
+    if(item.taskType!=="LEARN")return;
+    if(explanation?.itemId===item.id){setExplanation(undefined);return;}
+    setExplaining(item.id);setError("");
+    try{setExplanation({itemId:item.id,data:await api.explainPlanItem(item.id)});}
+    catch(e){setError(e instanceof Error?e.message:"AI 知识讲解生成失败");}
+    finally{setExplaining(undefined);}
   }
 
   if(!user)return <div className="plan-auth"><div><BrainCircuit size={38}/><h1>AI 个性化学习计划</h1><p>登录后，AI 会结合课程知识图谱、练习记录和 BKT 掌握度制定滚动计划。</p><button className="primary" onClick={onNeedAuth}>登录后制定计划</button></div></div>;
@@ -95,10 +106,14 @@ export function LearningPlanPage({user,initialCourseId,activePlan,onNeedAuth,onO
         <div className="plan-form-actions">{plan&&<button type="button" onClick={()=>setEditing(false)}>取消</button>}<button className="primary" disabled={generating||!form.goal.trim()||!!(restriction&&!restriction.canRegenerate)}>{generating?<LoaderCircle className="spin" size={16}/>:<Sparkles size={16}/>} {generating?"AI 正在编排计划…":"生成个性化计划"}</button></div>
       </form>:plan&&<>
         <div className="plan-metrics"><Metric title="计划完成度" value={plan.planProgress} detail={`${plan.completedMinutes} / ${plan.totalMinutes} 分钟权重`} accent="cyan"/><Metric title="能力掌握度" value={plan.abilityMastery} detail="由 BKT 证据计算" accent="blue"/><div className="plan-summary"><b>{plan.durationWeeks} 周滚动计划</b><p>{plan.summary}</p><small>{plan.modelName}</small></div></div>
-        <div className="plan-timeline">{plan.stages.map(stage=>{const completed=stage.items.filter(i=>i.status==="COMPLETED").length;return <section className="plan-stage" key={stage.id}><div className="stage-rail"><span>{stage.weekNumber}</span><i/></div><div className="stage-body"><div className="stage-head"><div><small>WEEK {stage.weekNumber}</small><h3>{stage.title}</h3><p>{stage.objective}</p></div><em>{completed}/{stage.items.length}</em></div><div className="plan-items">{stage.items.map(item=><article className={item.status==="COMPLETED"?"done":""} key={item.id}><button className="task-check" title={evidenceTask(item)?"需要通过运行评估完成":"确认任务状态"} disabled={updating===item.id||evidenceTask(item)} onClick={()=>toggle(item)}>{updating===item.id?<LoaderCircle className="spin" size={14}/>:item.status==="COMPLETED"?<Check size={14}/>:null}</button><div><div className="task-meta"><span>{taskLabels[item.taskType]||item.taskType}</span><small><Clock3 size={11}/>{item.estimatedMinutes} 分钟</small>{item.knowledgePointName&&<small>{item.knowledgePointName} 目标 {Math.round(item.targetMastery*100)}%</small>}</div><b>{item.title}</b><p>{item.description}</p></div>{evidenceTask(item)&&item.status!=="COMPLETED"&&<button className="task-open" disabled={starting===item.id} onClick={()=>startTask(item)}>{starting===item.id?<LoaderCircle className="spin" size={14}/>:null}{item.problemId?"去练习":"AI 生成练习"}<ChevronRight size={14}/></button>}</article>)}</div></div></section>})}</div>
+        <div className="plan-timeline">{plan.stages.map(stage=>{const completed=stage.items.filter(i=>i.status==="COMPLETED").length;return <section className="plan-stage" key={stage.id}><div className="stage-rail"><span>{stage.weekNumber}</span><i/></div><div className="stage-body"><div className="stage-head"><div><small>WEEK {stage.weekNumber}</small><h3>{stage.title}</h3><p>{stage.objective}</p></div><em>{completed}/{stage.items.length}</em></div><div className="plan-items">{stage.items.map(item=><Fragment key={item.id}><article className={`${item.status==="COMPLETED"?"done ":""}${item.taskType==="LEARN"?"learnable":""}`}><button className="task-check" title={evidenceTask(item)?"需要通过运行评估完成":"确认任务状态"} disabled={updating===item.id||evidenceTask(item)} onClick={()=>toggle(item)}>{updating===item.id?<LoaderCircle className="spin" size={14}/>:item.status==="COMPLETED"?<Check size={14}/>:null}</button><button className="task-content" disabled={item.taskType!=="LEARN"||explaining===item.id} onClick={()=>explain(item)}><span className="task-meta"><span>{taskLabels[item.taskType]||item.taskType}</span><small><Clock3 size={11}/>{item.estimatedMinutes} 分钟</small>{item.knowledgePointName&&<small>{item.knowledgePointName} 目标 {Math.round(item.targetMastery*100)}%</small>}</span><b>{item.title}</b><span className="task-description">{item.description}</span></button>{item.taskType==="LEARN"?<button className="task-open" disabled={explaining===item.id} onClick={()=>explain(item)}>{explaining===item.id?<LoaderCircle className="spin" size={14}/>:<BookOpenText size={14}/>} {explanation?.itemId===item.id?"收起讲解":"AI 讲解"}</button>:evidenceTask(item)&&<button className="task-open" title={item.status==="COMPLETED"?"重复练习不会再次增加计划进度":undefined} disabled={starting===item.id} onClick={()=>startTask(item)}>{starting===item.id?<LoaderCircle className="spin" size={14}/>:null}{item.status==="COMPLETED"?"继续练习":item.problemId?"去练习":"AI 生成练习"}<ChevronRight size={14}/></button>}</article>{explanation?.itemId===item.id&&<KnowledgeLesson data={explanation.data} onClose={()=>setExplanation(undefined)}/>}</Fragment>)}</div></div></section>})}</div>
       </>}
     </main>
   </div>;
+}
+
+function KnowledgeLesson({data,onClose}:{data:KnowledgeExplanation;onClose:()=>void}){
+  return <section className="knowledge-lesson"><header><div><span><Sparkles size={13}/> AI 知识讲解</span><h4>{data.title}</h4><p>{data.overview}</p></div><button title="收起讲解" onClick={onClose}><X size={15}/></button></header><div className="lesson-sections">{data.sections.map((section,index)=><article key={`${section.title}-${index}`}><h5>{section.title}</h5><p>{section.content}</p>{section.code&&<pre><code>{section.code}</code></pre>}</article>)}</div><div className="lesson-footer"><div><b>记住这几点</b><ul>{data.keyPoints.map((point,index)=><li key={index}>{point}</li>)}</ul></div><div className="lesson-check"><b>想一想</b><p>{data.checkQuestion}</p></div><small>{data.modelName}</small></div></section>;
 }
 
 function Metric({title,value,detail,accent}:{title:string;value:number;detail:string;accent:string}){

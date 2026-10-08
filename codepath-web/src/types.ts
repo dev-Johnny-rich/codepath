@@ -58,6 +58,18 @@ export type LearningPlan = {
   modelName:string; stages:LearningPlanStage[];
 };
 export type LearningTrack = {id:number;name:string;language:string;description?:string};
+export type KnowledgeExplanationSection = {title:string;content:string;code?:string};
+export type KnowledgeExplanation = {
+  title:string;overview:string;sections:KnowledgeExplanationSection[];
+  keyPoints:string[];checkQuestion:string;modelName:string;
+};
+export type CoachConversation = {
+  id:number;title:string;submissionId?:number;createdAt:string;updatedAt:string;
+  messageCount:number;preview:string;
+};
+export type CoachMessage = {
+  id:number;role:"user"|"assistant";content:string;modelName?:string;createdAt:string;
+};
 export type HistoryItem = Omit<Submission, "testResults" | "diagnosis" | "errorMessage" | "memoryKb">;
 export type Page<T> = { content: T[]; totalElements: number; totalPages: number; number: number };
 export type DiscussionPost = {

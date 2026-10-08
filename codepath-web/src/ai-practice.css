@@ -18,6 +18,12 @@
 .generated-knowledge span { padding: 5px 7px; border: 1px solid #2b5962; border-radius: 6px; color: #67d8ca; background: #102b34; font-size: 8px; }
 .ai-evaluation-note { display: flex; gap: 9px; padding: 12px; border: 1px solid #31566e; border-radius: 9px; color: #6fdccc; background: #102536; }
 .ai-evaluation-note span { color: #8fa4b9; font-size: 9px; line-height: 1.65; }
+.ai-source-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 10px; color: #72dfd0; background: #12313a; font-size: 9px; }
+.generated-stdin { width: 100%; min-height: 90px; resize: vertical; border: 1px solid #29435b; border-radius: 8px; padding: 10px; outline: none; color: #d9e6f2; background: #07121f; font: 11px/1.6 "JetBrains Mono", monospace; }
+.generated-stdin:focus { border-color: #50cfc2; box-shadow: 0 0 0 3px #54dfcf12; }
+.problem-copy .generated-knowledge { margin-top: 16px; }
+.panel-content > .ai-evaluation { margin: 14px; }
+.panel-content > .ai-judging, .panel-content > .ai-evaluation-error { margin: 16px; }
 .ai-judging { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 11px; border: 1px solid #285768; border-radius: 8px; color: #6ddbcf; background: #102735; }
 .ai-evaluation-error { display: flex; align-items: center; gap: 7px; margin-top: 14px; padding: 10px; border: 1px solid #6d3a45; border-radius: 8px; color: #f18e9b; background: #28171e; }
 .ai-evaluation-error button { margin-left: auto; border: 0; color: #ffabb4; background: transparent; font-size: 9px; cursor: pointer; }

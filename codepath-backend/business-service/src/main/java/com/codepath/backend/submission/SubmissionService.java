@@ -57,8 +57,8 @@ public class SubmissionService {
     public SubmissionAcceptedResponse createSelfPractice(SelfPracticeRunRequest request) {
         String language = request.language().trim().toLowerCase();
         if (language.equals("c++")) language = "cpp";
-        if (!List.of("python", "java", "cpp").contains(language)) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "自由练习仅支持 Python、Java 和 C++");
+        if (!List.of("python", "java", "cpp", "go").contains(language)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "自由练习仅支持 Python、Java、C++ 和 Go");
         }
         // problem_id=1 仅用于满足现有提交表外键；自由练习不会参与题目成绩和掌握度。
         Submission submission = Submission.queued(0L, 1L, language, request.sourceCode(), 1);
@@ -161,7 +161,15 @@ public class SubmissionService {
     @Transactional
     public void markRunning(Long submissionId) {
         Submission submission = getSubmission(submissionId);
-        submission.transitionTo(SubmissionStatus.RUNNING);
+        submission.transitionTo(SubmissionStatus.PREPARING);
+    }
+
+    @Transactional
+    public void markStage(Long submissionId, SubmissionStatus status) {
+        if (status != SubmissionStatus.COMPILING && status != SubmissionStatus.RUNNING) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持的执行阶段：" + status);
+        }
+        getSubmission(submissionId).transitionTo(status);
     }
 
     @Transactional

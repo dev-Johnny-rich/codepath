@@ -1,0 +1,65 @@
+.task-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.task-content:disabled { opacity: 1; }
+.learnable .task-content { cursor: pointer; }
+.learnable:hover { border-color: #377078; background: #0e2231; }
+.task-description { margin-top: 4px; color: #788ca4; font-size: 9px; line-height: 1.55; }
+.plan-items article.done .task-content > b { text-decoration: line-through; }
+.plan-items article.done .task-open { opacity: 1; }
+.task-open:disabled { opacity: .6; cursor: wait; }
+
+.knowledge-lesson {
+  margin: -1px 0 6px 37px;
+  overflow: hidden;
+  border: 1px solid #28616b;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #0e2631, #0b1b2a);
+  box-shadow: 0 16px 38px #0003;
+}
+
+.knowledge-lesson > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #214352;
+}
+
+.knowledge-lesson > header span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--cyan);
+  font: 600 8px monospace;
+  letter-spacing: .7px;
+}
+
+.knowledge-lesson h4 { margin: 6px 0 5px; font-size: 15px; }
+.knowledge-lesson > header p { max-width: 780px; margin: 0; color: #8da1b5; font-size: 10px; line-height: 1.7; }
+.knowledge-lesson > header button { align-self: flex-start; padding: 4px; border: 0; background: transparent; color: #7189a1; cursor: pointer; }
+.lesson-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px 18px; }
+.lesson-sections article { display: block; padding: 13px; border: 1px solid #203c4d; border-radius: 8px; background: #091723; }
+.lesson-sections h5 { margin: 0 0 7px; color: #b9d4df; font-size: 11px; }
+.lesson-sections p { margin: 0; color: #8499ad; font-size: 9px; line-height: 1.75; white-space: pre-wrap; }
+.lesson-sections pre { overflow: auto; margin: 10px 0 0; padding: 10px; border-radius: 6px; background: #050d15; color: #9ee7d9; font: 9px/1.65 monospace; }
+.lesson-footer { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; padding: 0 18px 16px; }
+.lesson-footer > div { padding: 11px; border-radius: 8px; background: #102331; }
+.lesson-footer b { color: #c0d0df; font-size: 10px; }
+.lesson-footer ul { margin: 7px 0 0; padding-left: 16px; color: #8398ac; font-size: 9px; line-height: 1.7; }
+.lesson-check p { margin: 7px 0 0; color: #8ba1b5; font-size: 9px; line-height: 1.6; }
+.lesson-footer > small { align-self: end; color: #536b80; font: 8px monospace; }
+
+@media (max-width: 900px) {
+  .lesson-sections, .lesson-footer { grid-template-columns: 1fr; }
+  .knowledge-lesson { margin-left: 0; }
+}

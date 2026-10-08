@@ -16,7 +16,9 @@ import java.util.Map;
 @NoArgsConstructor
 public class Submission {
     private static final Map<SubmissionStatus, EnumSet<SubmissionStatus>> TRANSITIONS = Map.of(
-            SubmissionStatus.QUEUED, EnumSet.of(SubmissionStatus.RUNNING, SubmissionStatus.FAILED),
+            SubmissionStatus.QUEUED, EnumSet.of(SubmissionStatus.PREPARING, SubmissionStatus.FAILED),
+            SubmissionStatus.PREPARING, EnumSet.of(SubmissionStatus.COMPILING, SubmissionStatus.FAILED),
+            SubmissionStatus.COMPILING, EnumSet.of(SubmissionStatus.RUNNING, SubmissionStatus.ANALYZING, SubmissionStatus.FAILED),
             SubmissionStatus.RUNNING, EnumSet.of(SubmissionStatus.ANALYZING, SubmissionStatus.FAILED),
             SubmissionStatus.ANALYZING, EnumSet.of(SubmissionStatus.DIAGNOSING, SubmissionStatus.COMPLETED, SubmissionStatus.FAILED),
             SubmissionStatus.DIAGNOSING, EnumSet.of(SubmissionStatus.UPDATING_MASTERY, SubmissionStatus.FAILED),
@@ -86,7 +88,7 @@ public class Submission {
             throw new BusinessException(HttpStatus.CONFLICT, "非法提交状态变化：" + status + " -> " + next);
         }
         status = next;
-        if (next == SubmissionStatus.RUNNING) {
+        if (next == SubmissionStatus.PREPARING) {
             startedAt = LocalDateTime.now();
         }
         if (next == SubmissionStatus.COMPLETED || next == SubmissionStatus.FAILED) {

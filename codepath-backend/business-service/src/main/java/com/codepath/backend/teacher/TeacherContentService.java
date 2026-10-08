@@ -17,7 +17,7 @@ import java.util.Set;
 @Service
 public class TeacherContentService {
     private static final Set<String> STATUSES = Set.of("DRAFT", "PUBLISHED", "ARCHIVED");
-    private static final Set<String> LANGUAGES = Set.of("python", "java", "cpp", "c++");
+    private static final Set<String> LANGUAGES = Set.of("python", "java", "cpp", "c++", "go");
     private final CourseRepository courseRepository;
     private final ProblemRepository problemRepository;
     private final TestCaseRepository testCaseRepository;

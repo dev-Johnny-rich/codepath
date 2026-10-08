@@ -11,8 +11,11 @@ class Settings:
     python_image = os.getenv("SANDBOX_PYTHON_IMAGE", os.getenv("SANDBOX_IMAGE", "python:3.12-alpine"))
     java_image = os.getenv("SANDBOX_JAVA_IMAGE", "eclipse-temurin:21-jdk-alpine")
     cpp_image = os.getenv("SANDBOX_CPP_IMAGE", "gcc:14-bookworm")
+    go_image = os.getenv("SANDBOX_GO_IMAGE", "golang:1.24-bookworm")
     max_output_bytes = int(os.getenv("MAX_OUTPUT_BYTES", "65536"))
     max_attempts = int(os.getenv("WORKER_MAX_ATTEMPTS", "3"))
+    docker_timeout_seconds = int(os.getenv("DOCKER_TIMEOUT_SECONDS", "120"))
+    max_task_seconds = int(os.getenv("MAX_TASK_SECONDS", "120"))
     dead_letter_queue = os.getenv("EXECUTION_DLQ", "codepath:submission:dlq")
 
 

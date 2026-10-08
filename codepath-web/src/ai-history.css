@@ -1,0 +1,64 @@
+.ai-chat-head > nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ai-chat-head > nav button,
+.ai-chat-head > button {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #71859d;
+  cursor: pointer;
+}
+
+.ai-chat-head > nav button:hover,
+.ai-chat-head > nav button.active {
+  color: var(--cyan);
+  background: #173246;
+}
+
+.ai-history-list {
+  overflow-y: auto;
+  padding: 9px;
+  background: radial-gradient(circle at 100% 0, #12304766, transparent 38%);
+}
+
+.ai-history-list > button {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 10px;
+  border: 1px solid #21384d;
+  border-radius: 9px;
+  background: #0d1d2d;
+  color: #7790a7;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-history-list > button:hover,
+.ai-history-list > button.current {
+  border-color: #39747a;
+  background: #102a36;
+}
+
+.ai-history-list > button > svg:first-child { color: var(--cyan); }
+.ai-history-list > button > span { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.ai-history-list b { overflow: hidden; color: #c0cedc; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ai-history-list small { overflow: hidden; color: #758aa0; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.ai-history-list em { color: #526b82; font-size: 7px; font-style: normal; }
+.ai-history-empty { min-height: 280px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #5e7890; text-align: center; }
+.ai-history-empty b { color: #9eb0c1; }
+.ai-history-empty span { max-width: 220px; font-size: 8px; line-height: 1.6; }
+.ai-history-action { display: grid; padding: 10px; border-top: 1px solid #1d3044; background: #0c1928; }
+.ai-history-action button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px; border: 1px solid #39747a; border-radius: 8px; background: #12313a; color: var(--cyan); font-size: 9px; cursor: pointer; }

@@ -61,11 +61,30 @@ public class CoachController {
         return ApiResponse.ok(Map.of("id", id));
     }
 
+    @GetMapping("/coach/conversations")
+    public ApiResponse<List<Map<String, Object>>> conversations(
+            @AuthenticationPrincipal AppPrincipal user) {
+        return ApiResponse.ok(jdbc.sql("""
+                SELECT c.id,c.title,c.submission_id AS submissionId,
+                       c.created_at AS createdAt,c.updated_at AS updatedAt,
+                       COUNT(m.id) AS messageCount,
+                       COALESCE((SELECT LEFT(last_message.content,120)
+                         FROM ai_message last_message
+                         WHERE last_message.conversation_id=c.id
+                         ORDER BY last_message.id DESC LIMIT 1),'尚无消息') AS preview
+                FROM ai_conversation c
+                LEFT JOIN ai_message m ON m.conversation_id=c.id
+                WHERE c.user_id=:userId AND c.status='ACTIVE'
+                GROUP BY c.id,c.title,c.submission_id,c.created_at,c.updated_at
+                ORDER BY c.updated_at DESC,c.id DESC LIMIT 50
+                """).param("userId", user.userId()).query().listOfRows());
+    }
+
     @GetMapping("/coach/conversations/{id}/messages")
     public ApiResponse<List<Map<String, Object>>> messages(@AuthenticationPrincipal AppPrincipal user,
                                                             @PathVariable Long id) {
         verifyConversation(id, user.userId());
-        return ApiResponse.ok(jdbc.sql("SELECT id,role,content,model_name,created_at FROM ai_message WHERE conversation_id=:id ORDER BY id")
+        return ApiResponse.ok(jdbc.sql("SELECT id,role,content,model_name AS modelName,created_at AS createdAt FROM ai_message WHERE conversation_id=:id ORDER BY id")
             .param("id", id).query().listOfRows());
     }
 
@@ -114,6 +133,8 @@ public class CoachController {
     private void insertMessage(Long id, String role, String content, String model) {
         jdbc.sql("INSERT INTO ai_message(conversation_id,role,content,model_name) VALUES (:id,:r,:c,:m)")
             .param("id", id).param("r", role).param("c", content).param("m", model).update();
+        jdbc.sql("UPDATE ai_conversation SET updated_at=NOW(6) WHERE id=:id")
+            .param("id", id).update();
     }
 
     private String buildContext(Number submissionId, String query) {

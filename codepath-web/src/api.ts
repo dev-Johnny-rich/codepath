@@ -1,4 +1,4 @@
-import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, Course, DiscussionPost, HistoryItem, LearningAssistance, LearningPlan, LearningTrack, Page, Problem, PublicExample, Submission, User } from "./types";
+import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, CoachConversation, CoachMessage, Course, DiscussionPost, HistoryItem, KnowledgeExplanation, LearningAssistance, LearningPlan, LearningTrack, Page, Problem, PublicExample, Submission, User } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "";
 type Envelope<T> = { success: boolean; data: T; message?: string };
@@ -52,6 +52,8 @@ export const api = {
   history: (problemId?: number) => request<Page<HistoryItem>>(`/api/v1/submissions?size=20&sort=createdAt,desc${problemId ? `&problemId=${problemId}` : ""}`),
   hint: (submissionId: number, level: number) => request<{ content: string; modelName: string }>(`/api/v1/submissions/${submissionId}/hints`, { method: "POST", body: JSON.stringify({ level, question: "请根据我的错误给出当前层级的提示" }) })
   ,createCoachConversation: (submissionId?:number,title="AI 编程教练") => request<{id:number}>("/api/v1/coach/conversations",{method:"POST",body:JSON.stringify({submissionId:submissionId||null,title})})
+  ,coachConversations: () => request<CoachConversation[]>("/api/v1/coach/conversations")
+  ,coachMessages: (conversationId:number) => request<CoachMessage[]>(`/api/v1/coach/conversations/${conversationId}/messages`)
   ,sendCoachMessage: (conversationId:number,content:string) => request<{content:string;modelName:string}>(`/api/v1/coach/conversations/${conversationId}/messages`,{method:"POST",body:JSON.stringify({content})})
   ,guestCoachMessage: (messages:{role:"user"|"assistant";content:string}[]) => request<{content:string;modelName:string}>("/api/v1/coach/guest-chat",{method:"POST",body:JSON.stringify({messages:messages.slice(-20)})})
   ,discussions: (q="") => request<DiscussionPost[]>(`/api/v1/discussions?q=${encodeURIComponent(q)}`),
@@ -64,5 +66,6 @@ export const api = {
   activeLearningPlan: () => request<LearningPlan|null>("/api/v1/learning-plans/active"),
   generateLearningPlan: (input:{courseId:number;goal:string;currentLevel:string;daysPerWeek:number;minutesPerDay:number;durationWeeks:number}) => request<LearningPlan>("/api/v1/learning-plans/generate",{method:"POST",body:JSON.stringify(input)}),
   completeLearningPlanItem: (itemId:number,completed:boolean) => request<LearningPlan>(`/api/v1/learning-plans/items/${itemId}`,{method:"PUT",body:JSON.stringify({completed})}),
-  generatePlanPractice: (itemId:number) => request<AiGeneratedPractice>(`/api/v1/learning-plans/items/${itemId}/generated-practice`,{method:"POST"})
+  generatePlanPractice: (itemId:number) => request<AiGeneratedPractice>(`/api/v1/learning-plans/items/${itemId}/generated-practice`,{method:"POST"}),
+  explainPlanItem: (itemId:number) => request<KnowledgeExplanation>(`/api/v1/learning-plans/items/${itemId}/explain`,{method:"POST"})
 };

@@ -105,6 +105,9 @@ services:
       SANDBOX_PYTHON_IMAGE: python:3.12-alpine
       SANDBOX_JAVA_IMAGE: eclipse-temurin:21-jdk-alpine
       SANDBOX_CPP_IMAGE: gcc:14-bookworm
+      SANDBOX_GO_IMAGE: golang:1.24-bookworm
+      DOCKER_TIMEOUT_SECONDS: 120
+      MAX_TASK_SECONDS: 120
       WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
       EXECUTION_DLQ: codepath:submission:dlq
     volumes:
