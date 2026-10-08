@@ -14,19 +14,19 @@
 ### 1. 复制环境变量模板
 
 ```bash
-cp .env.example .env
+cp codepath-backend/.env.example codepath-backend/.env
 ```
 
 ### 2. 编辑 .env 文件
 
-使用文本编辑器打开 `.env` 文件，填写实际的配置信息：
+使用文本编辑器打开 `codepath-backend/.env` 文件，填写实际的配置信息：
 
 ```bash
 # Linux/Mac
-nano .env
+nano codepath-backend/.env
 
 # Windows
-notepad .env
+notepad codepath-backend/.env
 ```
 
 ### 3. 填写必需的配置
@@ -34,7 +34,7 @@ notepad .env
 **必需配置**（必须填写）：
 - `MYSQL_PASSWORD` - MySQL 数据库密码
 - `NEO4J_PASSWORD` - Neo4j 数据库密码
-- `SECRET_KEY` - 应用密钥（生产环境必须修改）
+- `JWT_SECRET` - JWT 签名密钥（至少 32 字节，生产环境必须修改）
 
 **可选配置**（可以使用默认值）：
 - Redis 密码（如果 Redis 没有设置密码可以留空）
@@ -56,8 +56,8 @@ python config.py
 
 ```bash
 MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
+MYSQL_PORT=3307
+MYSQL_USER=codepath
 MYSQL_PASSWORD=MySecurePassword123!
 MYSQL_DATABASE=codepath
 ```
@@ -65,22 +65,18 @@ MYSQL_DATABASE=codepath
 ### Neo4j 配置示例
 
 ```bash
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
+NEO4J_URI=bolt://localhost:7688
+NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=Neo4jSecurePass456!
 ```
 
 ### Redis 配置示例
 
 ```bash
-# 如果 Redis 没有密码，REDIS_PASSWORD 留空
 REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# 如果 Redis 设置了密码
+REDIS_PORT=6380
 REDIS_PASSWORD=RedisPassword789!
+REDIS_DB=0
 ```
 
 ---
@@ -168,7 +164,7 @@ git diff --cached
    - MySQL 密码
    - Neo4j 密码
    - Redis 密码（如果有）
-   - SECRET_KEY
+   - JWT_SECRET
 
 3. **检查 GitHub/GitLab 是否有缓存**
    - GitHub 会缓存提交内容，需要联系支持清除
@@ -177,33 +173,31 @@ git diff --cached
 
 ## 🔧 开发环境 vs 生产环境
 
-### 开发环境 (.env.development)
+### 开发环境 (`codepath-backend/.env`)
 
 ```bash
 DEBUG=True
+APP_ENV=development
 MYSQL_HOST=localhost
 MYSQL_DATABASE=codepath_dev
-SECRET_KEY=dev-secret-key-not-secure
+JWT_SECRET=codepath-dev-jwt-secret-change-before-production-2026
 ```
 
-### 生产环境 (.env.production)
+### 生产环境
 
 ```bash
 DEBUG=False
+APP_ENV=production
 MYSQL_HOST=production-db.example.com
 MYSQL_DATABASE=codepath_prod
-SECRET_KEY=random-generated-256-bit-key-here
+JWT_SECRET=random-generated-256-bit-key-here
 ```
 
 ### 使用不同环境
 
-```python
-# 在代码中根据环境加载不同配置
-import os
-from dotenv import load_dotenv
-
-env = os.getenv('ENVIRONMENT', 'development')
-load_dotenv(f'.env.{env}')
+```bash
+# 根目录 Python 工具默认读取 codepath-backend/.env，也可显式指定
+CODEPATH_ENV_FILE=/secure/path/codepath.env python test_config.py
 ```
 
 ---
@@ -214,7 +208,7 @@ load_dotenv(f'.env.{env}')
 
 **A:** 确保：
 1. 文件名是 `.env`（注意开头的点）
-2. 文件在项目根目录
+2. 文件在 `codepath-backend` 目录
 3. 安装了 `python-dotenv` 包
 4. 代码中调用了 `load_dotenv()`
 
@@ -223,11 +217,11 @@ load_dotenv(f'.env.{env}')
 **A:** 
 ```bash
 # 检查 .env 文件是否存在
-ls -la .env  # Linux/Mac
-dir .env     # Windows
+ls -la codepath-backend/.env  # Linux/Mac
+dir codepath-backend\.env     # Windows
 
 # 手动测试
-python -c "from dotenv import load_dotenv; load_dotenv(); import os; print(os.getenv('MYSQL_PASSWORD'))"
+python test_config.py
 ```
 
 ### Q3: 如何在服务器上部署？

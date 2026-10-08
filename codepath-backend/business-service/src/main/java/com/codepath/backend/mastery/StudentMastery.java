@@ -38,7 +38,7 @@ public class StudentMastery {
         StudentMastery value = new StudentMastery();
         value.userId = userId;
         value.knowledgePointId = knowledgePointId;
-        value.mastery = new BigDecimal("0.5000");
+        value.mastery = new BigDecimal("0.1500");
         value.evidenceCount = 0;
         return value;
     }
@@ -46,6 +46,15 @@ public class StudentMastery {
     public BigDecimal apply(BigDecimal delta) {
         BigDecimal before = mastery;
         mastery = mastery.add(delta).max(BigDecimal.ZERO).min(BigDecimal.ONE);
+        evidenceCount += 1;
+        lastPracticedAt = LocalDateTime.now();
+        nextReviewAt = LocalDateTime.now().plusDays(mastery.doubleValue() >= 0.8 ? 14 : 3);
+        return before;
+    }
+
+    public BigDecimal applyBkt(BigDecimal nextMastery) {
+        BigDecimal before = mastery;
+        mastery = nextMastery.max(BigDecimal.ZERO).min(BigDecimal.ONE);
         evidenceCount += 1;
         lastPracticedAt = LocalDateTime.now();
         nextReviewAt = LocalDateTime.now().plusDays(mastery.doubleValue() >= 0.8 ? 14 : 3);

@@ -1,4 +1,4 @@
-import type { Assessment, Course, DiscussionPost, HistoryItem, Page, Problem, PublicExample, Submission, User } from "./types";
+import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, Course, DiscussionPost, HistoryItem, LearningAssistance, LearningPlan, LearningTrack, Page, Problem, PublicExample, Submission, User } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "";
 type Envelope<T> = { success: boolean; data: T; message?: string };
@@ -45,6 +45,10 @@ export const api = {
     return body.data;
   },
   submission: (id: number) => request<Submission>(`/api/v1/submissions/${id}`),
+  learningAssistance: (id:number) => request<LearningAssistance>(`/api/v1/submissions/${id}/learning-assistance`),
+  generatePractice: (submissionId:number) => request<AiGeneratedPractice>(`/api/v1/submissions/${submissionId}/generated-practice`,{method:"POST"}),
+  generatedPractice: (id:number) => request<AiGeneratedPractice>(`/api/v1/ai-practice/${id}`),
+  evaluatePractice: (id:number,sourceCode:string,stdin:string,stdout:string,stderr:string) => request<AiPracticeEvaluation>(`/api/v1/ai-practice/${id}/evaluate`,{method:"POST",body:JSON.stringify({sourceCode,stdin,stdout,stderr})}),
   history: (problemId?: number) => request<Page<HistoryItem>>(`/api/v1/submissions?size=20&sort=createdAt,desc${problemId ? `&problemId=${problemId}` : ""}`),
   hint: (submissionId: number, level: number) => request<{ content: string; modelName: string }>(`/api/v1/submissions/${submissionId}/hints`, { method: "POST", body: JSON.stringify({ level, question: "请根据我的错误给出当前层级的提示" }) })
   ,createCoachConversation: (submissionId?:number,title="AI 编程教练") => request<{id:number}>("/api/v1/coach/conversations",{method:"POST",body:JSON.stringify({submissionId:submissionId||null,title})})
@@ -54,5 +58,11 @@ export const api = {
   discussion: (id:number) => request<DiscussionPost>(`/api/v1/discussions/${id}`),
   createDiscussion: (title:string,content:string,tags:string,problemId?:number) => request<{id:number}>("/api/v1/discussions",{method:"POST",body:JSON.stringify({title,content,tags,problemId})}),
   comment: (id:number,content:string) => request<{id:number}>(`/api/v1/discussions/${id}/comments`,{method:"POST",body:JSON.stringify({content})}),
-  assessments: () => request<Assessment[]>("/api/v1/interview/assessments")
+  assessments: () => request<Assessment[]>("/api/v1/interview/assessments"),
+  learningPlanTracks: () => request<LearningTrack[]>("/api/v1/learning-plans/tracks"),
+  currentLearningPlan: (courseId:number) => request<LearningPlan|null>(`/api/v1/learning-plans/current?courseId=${courseId}`),
+  activeLearningPlan: () => request<LearningPlan|null>("/api/v1/learning-plans/active"),
+  generateLearningPlan: (input:{courseId:number;goal:string;currentLevel:string;daysPerWeek:number;minutesPerDay:number;durationWeeks:number}) => request<LearningPlan>("/api/v1/learning-plans/generate",{method:"POST",body:JSON.stringify(input)}),
+  completeLearningPlanItem: (itemId:number,completed:boolean) => request<LearningPlan>(`/api/v1/learning-plans/items/${itemId}`,{method:"PUT",body:JSON.stringify({completed})}),
+  generatePlanPractice: (itemId:number) => request<AiGeneratedPractice>(`/api/v1/learning-plans/items/${itemId}/generated-practice`,{method:"POST"})
 };

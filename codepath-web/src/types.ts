@@ -19,6 +19,45 @@ export type Submission = {
   totalCount: number; runtimeMs?: number; memoryKb?: number; errorMessage?: string;
   createdAt: string; testResults: TestResult[]; diagnosis?: Diagnosis;
 };
+export type KnowledgeGuidance = {
+  id:number; code:string; name:string; description?:string;
+  masteryBefore:number; masteryAfter:number; delta:number; reason:string;
+};
+export type LearningAssistance = {
+  submissionId:number; errorType:string; rootCause:string; explanation:string;
+  nextStep:string; modelName:string; knowledge:KnowledgeGuidance[];
+};
+export type AiPracticeKnowledge = { id:number; code:string; name:string };
+export type AiGeneratedPractice = {
+  id:number; title:string; description:string; inputDescription:string; outputDescription:string;
+  starterCode:string; stdin:string; language:string; difficulty:number;
+  knowledgePoints:AiPracticeKnowledge[]; modelName:string;
+};
+export type MasteryChange = {
+  knowledgePointId:number; knowledgePointName:string; masteryBefore:number;
+  masteryAfter:number; delta:number; modelName:string;
+};
+export type AiPracticeEvaluation = {
+  correct:boolean; score:number; feedback:string; errorType:string; nextStep:string;
+  modelName:string; masteryChanges:MasteryChange[];
+};
+export type LearningPlanItem = {
+  id:number; taskType:"LEARN"|"PRACTICE"|"REVIEW"|"ASSESSMENT"; title:string;
+  description:string; knowledgePointId?:number; knowledgePointName?:string;
+  problemId?:number; problemTitle?:string; estimatedMinutes:number;
+  targetMastery:number; status:"PENDING"|"COMPLETED";
+};
+export type LearningPlanStage = {
+  id:number; weekNumber:number; title:string; objective:string; items:LearningPlanItem[];
+};
+export type LearningPlan = {
+  id:number; courseId:number; courseName:string; title:string; summary:string; goal:string;
+  currentLevel:string; daysPerWeek:number; minutesPerDay:number; durationWeeks:number;
+  totalItems:number; completedItems:number; totalMinutes:number; completedMinutes:number;
+  planProgress:number; abilityMastery:number; nextRegenerationAt?:string; canRegenerate:boolean;
+  modelName:string; stages:LearningPlanStage[];
+};
+export type LearningTrack = {id:number;name:string;language:string;description?:string};
 export type HistoryItem = Omit<Submission, "testResults" | "diagnosis" | "errorMessage" | "memoryKb">;
 export type Page<T> = { content: T[]; totalElements: number; totalPages: number; number: number };
 export type DiscussionPost = {

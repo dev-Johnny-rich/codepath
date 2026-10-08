@@ -21,6 +21,11 @@ ENV/
 *.swo
 *~
 
+# 前端构建与依赖
+node_modules/
+dist/
+*.tsbuildinfo
+
 # 数据库相关
 *.db
 *.sqlite

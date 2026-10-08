@@ -55,8 +55,16 @@ class BKTService:
 
         self.redis_client = redis.Redis(**redis_kwargs)
 
-        # BKT 引擎
-        self.bkt_engine = AdaptiveBKTEngine(self.redis_client)
+        # BKT 引擎：参数统一从配置层读取
+        bkt_parameters = BKTParameters(
+            p_init=config.BKT_P_INIT,
+            p_learn=config.BKT_P_LEARN,
+            p_slip=config.BKT_P_SLIP,
+            p_guess=config.BKT_P_GUESS,
+        )
+        self.bkt_engine = AdaptiveBKTEngine(
+            self.redis_client, default_parameters=bkt_parameters
+        )
 
     def close(self):
         """关闭所有连接"""

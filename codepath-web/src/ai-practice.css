@@ -1,0 +1,39 @@
+.self-page.generated-mode {
+  grid-template-columns: 340px minmax(610px, 1fr);
+}
+
+.generated-spec {
+  margin: 18px 0;
+  padding: 13px;
+  border: 1px solid #244258;
+  border-radius: 10px;
+  background: #0a1926;
+}
+
+.generated-spec b { display: block; color: #63d9cb; font-size: 9px; }
+.generated-spec p { margin: 5px 0 12px; color: #91a4b8; font-size: 9px; line-height: 1.65; }
+.generated-spec p:last-child { margin-bottom: 0; }
+.generated-knowledge { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 17px; }
+.generated-knowledge strong { width: 100%; color: #9cadbf; font-size: 9px; }
+.generated-knowledge span { padding: 5px 7px; border: 1px solid #2b5962; border-radius: 6px; color: #67d8ca; background: #102b34; font-size: 8px; }
+.ai-evaluation-note { display: flex; gap: 9px; padding: 12px; border: 1px solid #31566e; border-radius: 9px; color: #6fdccc; background: #102536; }
+.ai-evaluation-note span { color: #8fa4b9; font-size: 9px; line-height: 1.65; }
+.ai-judging { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 11px; border: 1px solid #285768; border-radius: 8px; color: #6ddbcf; background: #102735; }
+.ai-evaluation-error { display: flex; align-items: center; gap: 7px; margin-top: 14px; padding: 10px; border: 1px solid #6d3a45; border-radius: 8px; color: #f18e9b; background: #28171e; }
+.ai-evaluation-error button { margin-left: auto; border: 0; color: #ffabb4; background: transparent; font-size: 9px; cursor: pointer; }
+.ai-evaluation { margin-top: 16px; padding: 14px; border: 1px solid #315369; border-radius: 10px; background: #0d2030; font-family: inherit; }
+.ai-evaluation.correct { border-color: #2e7568; }
+.ai-evaluation.incorrect { border-color: #70404b; }
+.evaluation-head { display: grid; grid-template-columns: 25px 1fr auto; align-items: center; gap: 8px; }
+.evaluation-head > svg { color: var(--cyan); }
+.evaluation-head span { display: flex; flex-direction: column; }
+.evaluation-head small { color: #7289a0; font-size: 8px; }
+.evaluation-head b { color: #dce7ef; font-size: 12px; }
+.evaluation-head > strong { color: var(--cyan); font: 700 22px monospace; }
+.ai-evaluation > p { color: #a7b7c7; font-size: 10px; line-height: 1.7; white-space: pre-wrap; }
+.evaluation-next { display: flex; align-items: flex-start; gap: 6px; padding: 9px; border-left: 2px solid var(--cyan); color: #8ca2b7; background: #112838; font-size: 9px; line-height: 1.6; }
+.mastery-changes { margin-top: 12px; padding-top: 10px; border-top: 1px solid #22384d; }
+.mastery-changes > span { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; color: #6edbce; font-size: 9px; }
+.mastery-changes > div { display: flex; justify-content: space-between; padding: 4px 0; color: #aebccb; font-size: 9px; }
+.mastery-changes em { color: #65daca; font: normal 9px monospace; }
+.ai-evaluation > small { display: block; margin-top: 10px; color: #63788f; font-size: 8px; }

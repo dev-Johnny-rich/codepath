@@ -30,9 +30,9 @@ try:
         print("=" * 50)
         print()
         print("📝 下一步：")
-        print("1. 如果 Neo4j 密码不是 'neo4j123'，请修改 .env 文件")
-        print("2. 运行：python database_migration.py")
-        print("3. 提交代码到 Git（记得 .env 不会被提交）")
+        print("1. 主配置文件：codepath-backend/.env")
+        print("2. 从宿主机运行工具时使用 MySQL 3307、Redis 6380、Neo4j 7688")
+        print("3. 上生产环境前设置 APP_ENV=production 并替换 JWT_SECRET")
     else:
         print()
         print("=" * 50)
@@ -45,7 +45,7 @@ except ImportError as e:
     print()
     print("请确保：")
     print("1. python-dotenv 已安装: pip install python-dotenv")
-    print("2. .env 文件存在于项目根目录")
+    print("2. codepath-backend/.env 存在，或已通过 CODEPATH_ENV_FILE 指定配置")
     sys.exit(1)
 except Exception as e:
     print(f"❌ 配置测试失败: {e}")

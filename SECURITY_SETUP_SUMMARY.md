@@ -136,10 +136,10 @@ git checkout feature/secure-config-management
 
 ```bash
 # 复制模板
-cp .env.example .env
+cp codepath-backend/.env.example codepath-backend/.env
 
-# 编辑 .env，填写实际密码
-nano .env  # 或使用其他编辑器
+# 编辑后端统一配置，填写实际密码
+nano codepath-backend/.env  # 或使用其他编辑器
 ```
 
 ### 3. 安装新依赖
@@ -159,8 +159,8 @@ python config.py
 配置信息:
 -----------------
 MySQL:
-  Host: localhost:3306
-  User: root
+  Host: localhost:3307
+  User: codepath
   Password: ***********
   Database: codepath
 ...

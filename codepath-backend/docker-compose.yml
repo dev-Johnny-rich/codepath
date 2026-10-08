@@ -1,4 +1,15 @@
 services:
+  web:
+    build:
+      context: ../codepath-web
+      args:
+        VITE_API_BASE_URL: http://localhost:8081
+    ports:
+      - "5173:80"
+    depends_on:
+      business-service:
+        condition: service_started
+
   mysql:
     image: mysql:8.4
     environment:
