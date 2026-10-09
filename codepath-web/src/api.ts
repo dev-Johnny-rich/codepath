@@ -1,4 +1,4 @@
-import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, CoachConversation, CoachMessage, Course, DiscussionPost, HistoryItem, KnowledgeExplanation, LearningAssistance, LearningPlan, LearningTrack, Page, Problem, PublicExample, Submission, User } from "./types";
+import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, CoachConversation, CoachMessage, Course, DiscussionPost, HistoryItem, KnowledgeExplanation, LearningAssistance, LearningPlan, LearningTrack, Page, Problem, PublicExample, Submission, User, UserProfile } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "";
 type Envelope<T> = { success: boolean; data: T; message?: string };
@@ -12,6 +12,7 @@ export const authStore = {
     localStorage.setItem("codepath_user", JSON.stringify(data.user));
   },
   clear: () => ["codepath_access_token", "codepath_refresh_token", "codepath_user"].forEach(k => localStorage.removeItem(k))
+  ,updateUser: (user:User) => localStorage.setItem("codepath_user",JSON.stringify(user))
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -35,6 +36,8 @@ export const api = {
   examples: (id:number) => request<PublicExample[]>(`/api/v1/problems/${id}/examples`),
   login: (account: string, password: string) => request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ account, password }) }),
   register: (email: string, username: string, password: string, displayName: string) => request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/register", { method: "POST", body: JSON.stringify({ email, username, password, displayName }) }),
+  userProfile: () => request<UserProfile>("/api/v1/users/me"),
+  updateUserProfile: (profile:Pick<UserProfile,"displayName"|"gender"|"personality"|"country"|"school"|"familyAddress"|"major"|"habit"|"avatarDataUrl">) => request<UserProfile>("/api/v1/users/me",{method:"PUT",body:JSON.stringify(profile)}),
   submit: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; status: string }>(`/api/v1/problems/${problemId}/submissions`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
   run: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; runToken: string; status: string }>(`/api/v1/problems/${problemId}/runs`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
   selfPractice: (language:string,sourceCode:string,stdin:string) => request<{submissionId:number;runToken:string;status:string}>("/api/v1/self-practice/runs",{method:"POST",body:JSON.stringify({language,sourceCode,stdin})}),

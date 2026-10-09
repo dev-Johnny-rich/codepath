@@ -192,6 +192,13 @@ public class SubmissionService {
         }
 
         submission.transitionTo(SubmissionStatus.ANALYZING);
+        Integer selfPractice = jdbc.sql("SELECT COUNT(*) FROM self_practice_input WHERE submission_id=:id")
+                .param("id", submissionId).query(Integer.class).single();
+        if (selfPractice > 0) {
+            // 自由运行只能证明程序可执行；没有标准输出时不能产生“全部测试通过”诊断。
+            submission.transitionTo(SubmissionStatus.COMPLETED);
+            return;
+        }
         submission.transitionTo(SubmissionStatus.DIAGNOSING);
         eventPublisher.publishEvent(new DiagnosisQueuedEvent(submissionId));
     }

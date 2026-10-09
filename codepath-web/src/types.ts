@@ -1,4 +1,8 @@
 export type User = { id: number; email: string; username: string; displayName: string; role: string };
+export type UserProfile = User & {
+  gender:string; personality:string; country:string; school:string;
+  familyAddress:string; major:string; habit:string; avatarDataUrl:string;
+};
 export type Course = { id: number; code: string; name: string; description?: string };
 export type Problem = {
   id: number; courseId: number; title: string; description: string; inputDescription?: string;
