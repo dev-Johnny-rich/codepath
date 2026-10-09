@@ -78,7 +78,12 @@ function AuthDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: (u
 function App() {
   const initialPage = (["practice","plan","discuss","interview","self-practice"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "practice") as PageName;
   const [page, setPageState] = useState<PageName>(initialPage);
-  const setPage = (next:PageName) => { location.hash=next; setPageState(next); };
+  const [interviewKey, setInterviewKey] = useState(0);
+  const setPage = (next:PageName) => {
+    location.hash=next;
+    setPageState(next);
+    if(next === "interview") setInterviewKey(prev => prev + 1);
+  };
   const [user, setUser] = useState<User | null>(authStore.user());
   const [authOpen, setAuthOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -362,6 +367,8 @@ function App() {
         : <button className="login-btn" onClick={() => setAuthOpen(true)}><LogIn size={17}/>登录 / 注册</button>}
     </header>
 
+    {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
+    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={u => { setUser(u); if (problem) api.history(problem.id).then(p => setHistory(p.content)); }}/>}
     {page === "practice" ? <div ref={workspaceRef} className={`workspace resizable-workspace${resizeTarget ? ` resizing-${resizeTarget}` : ""}`}
       style={{gridTemplateColumns:`${panelSizes.left}px ${RESIZER_SIZE}px minmax(${MIN_PANEL_SIZES.center}px, 1fr) ${RESIZER_SIZE}px ${panelSizes.right}px`}}>
       <aside className="problem-nav">
@@ -420,7 +427,7 @@ function App() {
           {hint && <div className="hint-answer"><div><Sparkles size={15}/><b>AI 提示</b></div><p>{hint}</p></div>}
         </div> : <AssistancePanel user={user} evidence={submission||runResult} canGenerate={!!submission} assistance={assistance} loading={assistanceLoading} error={assistanceError} onRetry={()=>{if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}} generatedPractice={generatedPractice} generating={practiceGenerating} generationError={practiceGenerationError} onGenerate={generatePractice} onOpenGenerated={openGeneratedPractice} onNeedAuth={()=>setAuthOpen(true)}/>}
       </aside>
-    </div> : page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage user={user} onNeedAuth={()=>setAuthOpen(true)}/> : <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/>}
+    </div> : page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)}/> : <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/>}
     <AiWidget key={user.id} user={user} submissionId={submission?.id}/>
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
     {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={u => { setUser(u); if (problem) api.history(problem.id).then(p => setHistory(p.content)); }}/>}
