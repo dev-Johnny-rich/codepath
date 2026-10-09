@@ -20,16 +20,28 @@ public class LearningAssistanceService {
 
     @Transactional
     public LearningAssistanceView get(Long userId, Long submissionId) {
+        Integer owned = jdbc.sql("SELECT COUNT(*) FROM submission WHERE id=:submissionId AND user_id=:userId")
+                .param("submissionId", submissionId).param("userId", userId)
+                .query(Integer.class).single();
+        if (owned == 0) throw new BusinessException(HttpStatus.NOT_FOUND, "提交记录不存在");
+        return build(userId, submissionId, true);
+    }
+
+    @Transactional(readOnly = true)
+    public LearningAssistanceView getForRun(Long masteryUserId, Long submissionId) {
+        return build(masteryUserId, submissionId, false);
+    }
+
+    private LearningAssistanceView build(Long masteryUserId, Long submissionId, boolean includeMasteryEvent) {
         List<Map<String, Object>> analyses = jdbc.sql("""
                 SELECT p.course_id, d.error_type, d.root_cause, d.explanation,
                        d.next_action, d.model_name
                 FROM submission s
                 JOIN problem p ON p.id=s.problem_id
                 LEFT JOIN diagnosis d ON d.submission_id=s.id
-                WHERE s.id=:submissionId AND s.user_id=:userId
+                WHERE s.id=:submissionId
                 """)
                 .param("submissionId", submissionId)
-                .param("userId", userId)
                 .query().listOfRows();
         if (analyses.isEmpty()) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "提交记录不存在");
@@ -48,13 +60,15 @@ public class LearningAssistanceService {
                 FROM submission s
                 JOIN problem_knowledge_point pk ON pk.problem_id=s.problem_id
                 JOIN knowledge_point kp ON kp.id=pk.knowledge_point_id
-                LEFT JOIN student_mastery sm ON sm.user_id=s.user_id AND sm.knowledge_point_id=kp.id
+                LEFT JOIN student_mastery sm ON sm.user_id=:masteryUserId AND sm.knowledge_point_id=kp.id
                 LEFT JOIN mastery_event me ON me.submission_id=s.id AND me.knowledge_point_id=kp.id
-                WHERE s.id=:submissionId AND s.user_id=:userId
+                  AND :includeMasteryEvent=TRUE
+                WHERE s.id=:submissionId
                 ORDER BY pk.is_primary DESC, pk.weight DESC
                 """)
                 .param("submissionId", submissionId)
-                .param("userId", userId)
+                .param("masteryUserId", masteryUserId)
+                .param("includeMasteryEvent", includeMasteryEvent)
                 .query().listOfRows().stream()
                 .map(row -> {
                     BigDecimal after = decimal(row.get("mastery_after"));

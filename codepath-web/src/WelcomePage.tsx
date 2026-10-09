@@ -1,9 +1,9 @@
 import { FormEvent, useState } from "react";
-import { ArrowRight, Bot, CheckCircle2, CircleAlert, Code2, Eye, EyeOff, LoaderCircle, Play, ShieldCheck, Sparkles, TerminalSquare } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, CircleAlert, Code2, Eye, EyeOff, LoaderCircle, ShieldCheck, Sparkles, TerminalSquare } from "lucide-react";
 import { api, authStore } from "./api";
 import type { User } from "./types";
 
-export function WelcomePage({onSuccess,onGuest}:{onSuccess:(user:User)=>void;onGuest:()=>void}) {
+export function WelcomePage({onSuccess}:{onSuccess:(user:User)=>void}) {
   const [mode,setMode]=useState<"login"|"register">("login");
   const [form,setForm]=useState({account:"",password:"",email:"",username:"",displayName:""});
   const [showPassword,setShowPassword]=useState(false);
@@ -41,8 +41,6 @@ export function WelcomePage({onSuccess,onGuest}:{onSuccess:(user:User)=>void;onG
           {error&&<div className="welcome-error"><CircleAlert size={15}/>{error}</div>}
           <button className="welcome-submit" disabled={loading}>{loading?<LoaderCircle className="spin" size={17}/>:<ArrowRight size={17}/>}<span>{loading?"正在处理…":mode==="login"?"登录并继续":"注册并开始"}</span></button>
         </form>
-        <div className="guest-divider"><span/>或<span/></div>
-        <button className="guest-entry" onClick={onGuest}><Play size={15}/><span><b>先以游客身份体验</b><small>无需登录，也可以编写和运行代码</small></span></button>
         <div className="auth-security"><ShieldCheck size={14}/><span>密码使用 BCrypt 加密存储</span></div>
       </div>
     </section>

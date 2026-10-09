@@ -7,8 +7,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -34,23 +32,6 @@ public class CoachController {
     public record ConversationRequest(Long submissionId, String title) {}
     public record MessageRequest(@NotBlank String content) {}
     public record HintRequest(@Min(1) @Max(3) int level, String question) {}
-    public record GuestChatMessage(
-            @Pattern(regexp = "user|assistant") String role,
-            @NotBlank @Size(max = 4000) String content) {}
-    public record GuestChatRequest(
-            @NotEmpty @Size(max = 20) List<@Valid GuestChatMessage> messages) {}
-
-    @PostMapping("/coach/guest-chat")
-    public ApiResponse<Map<String, Object>> guestChat(@Valid @RequestBody GuestChatRequest request) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("messages", request.messages());
-        payload.put("context", "当前是游客通用编程问答，没有用户私有提交数据。");
-        Map response = ai.post().uri("/v1/coach/chat").body(payload).retrieve().body(Map.class);
-        return ApiResponse.ok(Map.of(
-                "content", Objects.toString(response.get("content")),
-                "modelName", Objects.toString(response.get("modelName"))));
-    }
-
     @PostMapping("/coach/conversations")
     public ApiResponse<Map<String, Object>> create(@AuthenticationPrincipal AppPrincipal user,
                                                     @RequestBody ConversationRequest request) {

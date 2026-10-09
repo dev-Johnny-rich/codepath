@@ -38,14 +38,10 @@ export const api = {
   submit: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; status: string }>(`/api/v1/problems/${problemId}/submissions`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
   run: (problemId: number, language: string, sourceCode: string) => request<{ submissionId: number; runToken: string; status: string }>(`/api/v1/problems/${problemId}/runs`, { method: "POST", body: JSON.stringify({ language, sourceCode }) }),
   selfPractice: (language:string,sourceCode:string,stdin:string) => request<{submissionId:number;runToken:string;status:string}>("/api/v1/self-practice/runs",{method:"POST",body:JSON.stringify({language,sourceCode,stdin})}),
-  runDetail: async (id:number,runToken:string) => {
-    const response=await fetch(`${BASE}/api/v1/runs/${id}`,{headers:{"X-Run-Token":runToken}});
-    const body=await response.json() as Envelope<Submission>;
-    if(!response.ok||!body.success)throw new Error(body.message||"读取运行结果失败");
-    return body.data;
-  },
+  runDetail: (id:number,runToken:string) => request<Submission>(`/api/v1/runs/${id}`,{headers:{"X-Run-Token":runToken}}),
   submission: (id: number) => request<Submission>(`/api/v1/submissions/${id}`),
   learningAssistance: (id:number) => request<LearningAssistance>(`/api/v1/submissions/${id}/learning-assistance`),
+  runLearningAssistance: (id:number,runToken:string) => request<LearningAssistance>(`/api/v1/runs/${id}/learning-assistance`,{headers:{"X-Run-Token":runToken}}),
   generatePractice: (submissionId:number) => request<AiGeneratedPractice>(`/api/v1/submissions/${submissionId}/generated-practice`,{method:"POST"}),
   generatedPractice: (id:number) => request<AiGeneratedPractice>(`/api/v1/ai-practice/${id}`),
   evaluatePractice: (id:number,sourceCode:string,stdin:string,stdout:string,stderr:string) => request<AiPracticeEvaluation>(`/api/v1/ai-practice/${id}/evaluate`,{method:"POST",body:JSON.stringify({sourceCode,stdin,stdout,stderr})}),
@@ -55,7 +51,6 @@ export const api = {
   ,coachConversations: () => request<CoachConversation[]>("/api/v1/coach/conversations")
   ,coachMessages: (conversationId:number) => request<CoachMessage[]>(`/api/v1/coach/conversations/${conversationId}/messages`)
   ,sendCoachMessage: (conversationId:number,content:string) => request<{content:string;modelName:string}>(`/api/v1/coach/conversations/${conversationId}/messages`,{method:"POST",body:JSON.stringify({content})})
-  ,guestCoachMessage: (messages:{role:"user"|"assistant";content:string}[]) => request<{content:string;modelName:string}>("/api/v1/coach/guest-chat",{method:"POST",body:JSON.stringify({messages:messages.slice(-20)})})
   ,discussions: (q="") => request<DiscussionPost[]>(`/api/v1/discussions?q=${encodeURIComponent(q)}`),
   discussion: (id:number) => request<DiscussionPost>(`/api/v1/discussions/${id}`),
   createDiscussion: (title:string,content:string,tags:string,problemId?:number) => request<{id:number}>("/api/v1/discussions",{method:"POST",body:JSON.stringify({title,content,tags,problemId})}),

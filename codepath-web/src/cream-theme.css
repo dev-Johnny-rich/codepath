@@ -1,0 +1,158 @@
+:root {
+  --bg: #f3ecdf;
+  --panel: #fffaf2;
+  --panel2: #eee4d6;
+  --line: #d8cbbb;
+  --muted: #7d7164;
+  --text: #3b342d;
+  --blue: #557ca4;
+  --cyan: #2d8c7d;
+  --orange: #b6762f;
+  --red: #c65d66;
+}
+
+body { color: var(--text); background-color: #f3ecdf; }
+.app-shell { background: radial-gradient(circle at 52% -35%, #e4d6c2 0, transparent 44%), #f3ecdf; }
+.app-shell > header { border-color: var(--line); background: rgba(255, 250, 242, .96); box-shadow: 0 2px 14px #6d584a10; }
+.brand-icon { color: #fffaf2; background: linear-gradient(135deg, #3ca697, #789bbd); box-shadow: 0 0 22px #2d8c7d22; }
+.brand-tag,.user-menu small { color: #887a6d; }
+.top-nav button { color: #786d62; }
+.top-nav button:hover { color: #3d352e; }
+.top-nav button.active { color: #247b6e; border-bottom-color: #2d8c7d; background: linear-gradient(0deg,#2d8c7d12,transparent); }
+.login-btn { border-color: #c9bba9; color: #4d443b; background: #f4eadc; }
+.icon-btn { color: #74685d; }
+
+.problem-nav,.detail-panel { background: #f6efe4; }
+.problem-nav { border-color: var(--line); }
+.nav-title { color: #594f45; }
+.path-plan-head,.progress-card { border-color: #d3c4b1; background: linear-gradient(145deg,#fffaf3,#ede2d3); }
+.path-plan-head b,.path-stages section>button b { color: #50473e; }
+.path-plan-head>button { color: #397f78; }
+.progress { background: #ded2c2; }
+.path-stages section h4,.path-stages section>button small { color: #7c7064; }
+.path-stages section>button:hover { background: #e9ded0; }
+.path-empty { border-color: #c8b8a5; color: #2d8c7d; }
+.path-empty b { color: #544a40; }
+.path-empty p { color: #827568; }
+.path-empty button { border-color: #79a69e; color: #246e64; background: #e5f0ea; }
+
+.coding-area { background: #faf6ef; }
+.editor-head,.submit-bar,.self-toolbar { border-color: var(--line); background: #f0e7da; }
+.editor-actions button,.shortcut { color: #796d61; }
+.language-pill { color: #476d8f; background: #e3eaf0; }
+.editor-wrap { background: #f8f2e9; }
+.practice-welcome { background: radial-gradient(circle at 50% 42%,#e4d6c2 0,transparent 35%),#f8f2e9; color: #84776a; }
+.practice-welcome strong { color: #433a32; }
+.submit-bar { border-color: var(--line); }
+.secondary { border-color: #cbbda9; color: #4f463d; background: #f8f1e7; }
+.primary { color: #fffdf8; background: linear-gradient(135deg,#3a9d8e,#638db4); box-shadow: 0 7px 22px #477f7825; }
+.bottom-panel,.panel-content { background: #faf6ef; }
+.panel-tabs,.side-tabs { border-color: var(--line); }
+.panel-tabs button,.side-tabs button { color: #766a5e; }
+.panel-tabs button.active,.side-tabs button.active { color: #247b6e; border-bottom-color: #2d8c7d; }
+.detail-panel { border-color: var(--line); }
+.problem-heading { border-color: #d7cabb; }
+.problem-heading h1,.problem-copy h3 { color: #4a4138; }
+.problem-heading>span { color: #247b6e; }
+.problem-heading div,.article { color: #74695e; }
+.article .muted { color: #9a8d7f; }
+.problem-welcome { color: #887b6e; }
+.problem-welcome > span { border-color: #87aaa3; color: #287d70; background: #e6f0eb; }
+.problem-welcome b { color: #51483f; }
+.public-examples .example-card { border-color: #d5c7b6; background: #fffaf3; }
+.public-examples pre { color: #51483f; background: #eee5d8; }
+.example-state,.no-example { color: #837568; }
+
+.coach-panel,.assist-panel { background: #f8f2e9; }
+.coach-intro { border-color: #d8cabb; }
+.coach-intro b,.coach-empty b,.assist-hero b,.assist-panel section>h3 { color: #4d443b; }
+.coach-intro small,.coach-empty,.coach-empty p { color: #817467; }
+.diagnosis-card,.assist-hero,.knowledge-card { border-color: #cdbda9; background: linear-gradient(145deg,#fffaf2,#ede3d5); }
+.diagnosis-card h3,.knowledge-card b { color: #4b4239; }
+.diagnosis-card p,.next-step p,.knowledge-card p { color: #71665b; }
+.next-step,.hint-answer { background: #e8f0eb; }
+.hints button { border-color: #d0c0ad; color: #9b681f; background: #f7ecda; }
+.hints button span { color: #6f6459; }
+.generated-practice-card { border-color: #91aaa3; background: linear-gradient(145deg,#edf4ef,#e8e5df); }
+.generated-practice-card b { color: #463e36; }
+
+.box-resizer { background: #e3d8c9; }
+.box-resizer.vertical { border-color: #d3c6b6; }
+.box-resizer.horizontal { border-color: #d3c6b6; }
+.box-resizer::after { background: #af9e8a; }
+
+.feature-page,.locked-page { background: radial-gradient(circle at 80% 0,#e5d8c5,transparent 34%),#f5eee3; }
+.feature-hero { border-color: var(--line); background: linear-gradient(120deg,#fffaf3dd,#eee3d5cc); }
+.feature-hero p,.locked-page p { color: #766b60; }
+.discussion-filter { border-color: var(--line); }
+.discussion-filter>button { color: #74685d; }
+.discussion-filter>button.active { color: #247b6e; background: #e5eee8; }
+.discuss-note,.post-card,.assessment-section,.stat-grid>div { border-color: #d4c5b3; background: #fffaf2; }
+.discuss-note b,.post-card h2,.section-head b,.stat-grid b { color: #493f36; }
+.discuss-note p,.post-card p,.feed-tools>span,.stat-grid small { color: #786c61; }
+.feed-tools>div { border-color: #d1c3b2; background: #fffaf3; }
+.feed-tools input { color: #453c34; }
+.post-card:hover,.assessment-row:not(.table-head):hover { border-color: #aa9883; background: #f1e8dc; }
+.discussion-drawer,.assessment-detail,.compose-card { border-color: #cbbba8; color: #433a32; background: #f9f3ea; box-shadow: -24px 0 60px #705a4725; }
+.compose-card input,.compose-card select,.compose-card textarea,.reply-box textarea { border-color: #cfbfac; color: #453c34; background: #fffaf3; }
+.post-full,.reply-card p { color: #665b51; }
+.linked-problem,.report-diagnosis { border-color: #b9aa96; color: #397b75; background: #ece7dc; }
+.assessment-section,.section-head,.assessment-row { border-color: #d7cabb; }
+.report-facts>span { border-color: #d4c5b3; background: #fffaf2; }
+
+.plan-page,.plan-auth,.plan-loading { background: #f4ede2; }
+.plan-sidebar { border-color: var(--line); background: radial-gradient(circle at 8% 0,#dfd0bb 0,transparent 38%),#eee4d7; }
+.plan-sidebar h1,.plan-top h2,.stage-head h3,.plan-form b { color: #433a32; }
+.plan-sidebar>p,.plan-principle span,.stage-head p { color: #786d62; }
+.plan-principle { border-color: #d2c3b1; }
+.plan-principle b { color: #554b42; }
+.plan-main { background: #f8f3eb; }
+.plan-top>button,.plan-form-actions>button:not(.primary) { border-color: #cdbdaa; color: #665b50; background: #f1e7da; }
+.plan-form,.plan-metric,.plan-summary { border-color: #d2c3b1; background: linear-gradient(145deg,#fffaf3,#eee4d7); box-shadow: 0 22px 55px #7c60451a; }
+.plan-form-intro,.stage-head { border-color: #d7cabb; }
+.plan-form textarea,.plan-form input,.plan-form select { border-color: #ccbca8; color: #443b33; background: #fffaf3; }
+.metric-ring:before { background: #fffaf3; }
+.plan-metric p,.plan-summary p { color: #74685d; }
+.stage-rail span { border-color: #6d9d95; color: #267c70; background: #e8f0eb; }
+.stage-rail i { background: #c8bbaa; }
+.plan-items article { border-color: #d5c7b6; background: #fffaf3; }
+.plan-items article.done { background: #e7eee8; }
+.plan-items article b { color: #493f36; }
+.task-description { color: #74685d; }
+.task-check { border-color: #b6a690; background: #fffaf3; }
+.knowledge-lesson { border-color: #8ba79f; background: linear-gradient(145deg,#f0f5f0,#eee6db); box-shadow: 0 14px 32px #6f58421c; }
+.knowledge-lesson>header,.lesson-sections article { border-color: #c9bcaa; }
+.knowledge-lesson h4,.lesson-sections h5,.lesson-footer b { color: #493f36; }
+.knowledge-lesson>header p,.lesson-sections p,.lesson-footer ul,.lesson-check p { color: #70655a; }
+.lesson-sections article,.lesson-footer>div { background: #fffaf3; }
+
+.self-page { background: #f4ede2; }
+.self-guide { border-color: var(--line); background: radial-gradient(circle at 10% 0,#dfd0bb 0,transparent 40%),#eee4d7; }
+.self-guide h1,.self-rule strong { color: #483f36; }
+.self-guide>p,.self-rule span { color: #786c60; }
+.self-rule { border-color: #d1c2b0; }
+.sandbox-note { border-color: #b7aa97; background: #e8eee9; }
+.self-workbench { background: #f8f2e9; }
+
+.ai-chatbox { border-color: #bfae9a; background: #fffaf2; box-shadow: 0 24px 70px #70594535; }
+.ai-chat-head { border-color: #d5c7b7; background: linear-gradient(110deg,#eee4d7,#f8f2e9); }
+.ai-chat-head b { color: #453c34; }
+.ai-chat-context,.ai-chat-foot { border-color: #ddd0c0; color: #786c60; background: #f4ebdf; }
+.ai-chat-messages,.ai-history-list { background: radial-gradient(circle at 100% 0,#e6d8c5,transparent 40%); }
+.ai-message p { border-color: #d2c3b1; color: #544b42; background: #fffaf3; }
+.ai-message.user p { border-color: #9fb7b0; color: #3f3a34; background: #e7f0eb; }
+.ai-chat-input,.ai-history-action { border-color: #d4c6b5; background: #f2e9dc; }
+.ai-chat-input textarea { border-color: #c8b8a4; color: #443b33; background: #fffaf3; }
+.ai-history-list>button { border-color: #d3c5b4; color: #786c61; background: #fffaf3; }
+.ai-history-list>button:hover,.ai-history-list>button.current { border-color: #809f98; background: #e9f0eb; }
+.ai-history-list b { color: #4a4138; }
+.ai-history-action button { border-color: #7da69e; color: #267a6e; background: #e6efea; }
+
+.auth-card { border-color: #c9baa7; color: #443b33; background: linear-gradient(145deg,#fffaf3,#eee4d7); box-shadow: 0 30px 80px #5e493638; }
+.auth-card input { border-color: #cbbba7; color: #443b33; background: #fffaf3; }
+
+/* Code execution areas remain dark for contrast and familiar editor behavior. */
+.monaco-editor,.monaco-editor .margin,.monaco-editor-background,.self-editor,
+.terminal-result,.terminal-output,.self-console-grid section,.stdin-panel textarea,.free-terminal {
+  color-scheme: dark;
+}

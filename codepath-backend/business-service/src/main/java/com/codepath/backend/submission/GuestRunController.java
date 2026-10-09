@@ -1,7 +1,9 @@
 package com.codepath.backend.submission;
 
+import com.codepath.backend.auth.AppPrincipal;
 import com.codepath.backend.common.ApiResponse;
 import com.codepath.backend.common.BusinessException;
+import com.codepath.backend.learning.LearningAssistanceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -21,8 +23,10 @@ import java.util.UUID;
 public class GuestRunController {
     private final SubmissionService submissions;
     private final JdbcClient jdbc;
-    public GuestRunController(SubmissionService submissions, JdbcClient jdbc) {
-        this.submissions = submissions; this.jdbc = jdbc;
+    private final LearningAssistanceService assistance;
+    public GuestRunController(SubmissionService submissions, JdbcClient jdbc,
+                              LearningAssistanceService assistance) {
+        this.submissions = submissions; this.jdbc = jdbc; this.assistance = assistance;
     }
 
     public record GuestRunAccepted(Long submissionId, String runToken, SubmissionStatus status) {}
@@ -54,11 +58,24 @@ public class GuestRunController {
     @GetMapping("/runs/{submissionId}")
     public ApiResponse<SubmissionDetailResponse> detail(@PathVariable Long submissionId,
                                                          @RequestHeader("X-Run-Token") String token) {
+        verifyRun(submissionId, token);
+        return ApiResponse.ok(submissions.detailForGuest(submissionId));
+    }
+
+    @GetMapping("/runs/{submissionId}/learning-assistance")
+    public ApiResponse<LearningAssistanceService.LearningAssistanceView> assistance(
+            @PathVariable Long submissionId,
+            @RequestHeader("X-Run-Token") String token,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal AppPrincipal principal) {
+        verifyRun(submissionId, token);
+        return ApiResponse.ok(assistance.getForRun(principal == null ? 0L : principal.userId(), submissionId));
+    }
+
+    private void verifyRun(Long submissionId, String token) {
         Integer allowed = jdbc.sql("""
             SELECT COUNT(*) FROM guest_run WHERE submission_id=:s AND access_token_hash=:h AND expires_at>NOW()
             """).param("s", submissionId).param("h", hash(token)).query(Integer.class).single();
         if (allowed == 0) throw new BusinessException(HttpStatus.FORBIDDEN, "运行凭证无效或已过期");
-        return ApiResponse.ok(submissions.detailForGuest(submissionId));
     }
 
     private static String hash(String value) {
