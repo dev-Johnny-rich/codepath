@@ -15,6 +15,11 @@ from app.learning_plan import (
     explain_knowledge,
     generate_learning_plan,
 )
+from app.learning_assessment import (
+    LearningAssessmentRequest,
+    LearningAssessmentResponse,
+    assess_learning,
+)
 from app.practice import (
     GeneratedPractice,
     PracticeEvaluation,
@@ -130,4 +135,18 @@ def learning_plan_explain(
         return explain_knowledge(request)
     except Exception as exc:
         logging.exception("knowledge explanation failed")
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/v1/learning-assessments/generate", response_model=LearningAssessmentResponse)
+def learning_assessment_generate(
+    request: LearningAssessmentRequest,
+    x_internal_token: str = Header(default=""),
+) -> LearningAssessmentResponse:
+    if x_internal_token != settings.internal_token:
+        raise HTTPException(status_code=401, detail="invalid internal token")
+    try:
+        return assess_learning(request)
+    except Exception as exc:
+        logging.exception("learning assessment failed")
         raise HTTPException(status_code=502, detail=str(exc)) from exc

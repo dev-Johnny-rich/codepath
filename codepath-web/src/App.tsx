@@ -13,6 +13,7 @@ import { LearningPlanPage } from "./LearningPlanPage";
 import { AiWidget } from "./AiWidget";
 import { WelcomePage } from "./WelcomePage";
 import { UserProfilePanel } from "./UserProfilePanel";
+import { parseServerDate } from "./date";
 import "./assistance.css";
 import "./plan-path.css";
 import "./practice-empty.css";
@@ -111,7 +112,6 @@ function App() {
     catch { return undefined; }
   });
   const [activeGeneratedPractice,setActiveGeneratedPractice]=useState<AiGeneratedPractice>();
-  const [generatedStdin,setGeneratedStdin]=useState("");
   const [practiceEvaluation,setPracticeEvaluation]=useState<AiPracticeEvaluation>();
   const [practiceEvaluating,setPracticeEvaluating]=useState(false);
   const [practiceEvaluationError,setPracticeEvaluationError]=useState("");
@@ -130,7 +130,6 @@ function App() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<number>();
   const generatedRunEpoch = useRef(0);
-  const generatedEvidence = useRef({sourceCode:"",stdin:""});
 
   useEffect(() => { api.courses().then(data => { setCourses(data); if (data[0]) setCourseId(data[0].id); }).catch(e => setNotice(e.message)); }, []);
   useEffect(() => { if (!courseId) return; api.problems(courseId).then(data => {
@@ -244,35 +243,32 @@ function App() {
     if(!activeGeneratedPractice||!code.trim())return;
     if(pollRef.current)window.clearTimeout(pollRef.current);
     const epoch=++generatedRunEpoch.current;
-    generatedEvidence.current={sourceCode:code,stdin:generatedStdin};
     setGuestRun(true);setBusy(true);setNotice("");setTab("run");setRunResult(undefined);setSubmission(undefined);setAssistance(undefined);setAssistanceError("");setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");
     try{
       const language=activeGeneratedPractice.language.toLowerCase().replace("c++","cpp");
-      const accepted=await api.selfPractice(language,generatedEvidence.current.sourceCode,generatedEvidence.current.stdin);
-      setRunAccess({id:accepted.submissionId,token:accepted.runToken});
-      await pollGeneratedPractice(accepted.submissionId,accepted.runToken,activeGeneratedPractice,epoch);
+      const accepted=await api.submitAiPractice(activeGeneratedPractice.id,language,code);
+      await pollGeneratedPractice(accepted.submissionId,activeGeneratedPractice,epoch);
     }catch(e){if(epoch===generatedRunEpoch.current){setBusy(false);setNotice(e instanceof Error?e.message:"运行失败");}}
   }
-  async function pollGeneratedPractice(id:number,token:string,item:AiGeneratedPractice,epoch:number){
+  async function pollGeneratedPractice(id:number,item:AiGeneratedPractice,epoch:number){
     try{
-      const detail=await api.runDetail(id,token);
+      const detail=await api.submission(id);
       if(epoch!==generatedRunEpoch.current)return;
       setRunResult(detail);
-      if(!terminalStates.has(detail.status)){pollRef.current=window.setTimeout(()=>pollGeneratedPractice(id,token,item,epoch),900);return;}
+      if(!terminalStates.has(detail.status)){pollRef.current=window.setTimeout(()=>pollGeneratedPractice(id,item,epoch),900);return;}
       setBusy(false);
       if(detail.status==="COMPLETED")await evaluateGeneratedPractice(item,detail,epoch);
     }catch(e){if(epoch===generatedRunEpoch.current){setBusy(false);setNotice(e instanceof Error?e.message:"读取运行结果失败");}}
   }
   async function evaluateGeneratedPractice(item:AiGeneratedPractice,detail:Submission,epoch:number){
-    const test=detail.testResults?.[0];
     setPracticeEvaluating(true);setPracticeEvaluationError("");setTab("result");
     try{
-      const next=await api.evaluatePractice(item.id,generatedEvidence.current.sourceCode,generatedEvidence.current.stdin,test?.actualOutput||"",test?.stderr||detail.errorMessage||"");
+      const next=await api.finalizeAiPractice(item.id,detail.id);
       if(epoch!==generatedRunEpoch.current)return;
       setPracticeEvaluation(next);
       setAssistance({
         submissionId:detail.id,errorType:next.errorType,
-        rootCause:next.correct?"本次解答通过 AI 评测":next.feedback,
+        rootCause:next.correct?"本次解答通过沙箱确定性评测":next.feedback,
         explanation:next.feedback,nextStep:next.nextStep,modelName:next.modelName,
         knowledge:next.masteryChanges.map(change=>{
           const point=item.knowledgePoints.find(candidate=>candidate.id===change.knowledgePointId);
@@ -326,7 +322,7 @@ function App() {
     ++generatedRunEpoch.current;
     setGeneratedPractice(item);
     localStorage.setItem("codepath-generated-practice",JSON.stringify(item));
-    setActiveGeneratedPractice(item);setGeneratedStdin(item.stdin||"");setCode(item.starterCode||templates[item.language.toLowerCase()]||"");
+    setActiveGeneratedPractice(item);setCode(item.starterCode||templates[item.language.toLowerCase()]||"");
     setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setAssistance(undefined);setAssistanceError("");setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");setNotice("");setTab("run");setSideTab("problem");
     setPage("practice");
   }
@@ -337,7 +333,7 @@ function App() {
     }
     ++generatedRunEpoch.current;
     if(pollRef.current)window.clearTimeout(pollRef.current);
-    setActiveGeneratedPractice(undefined);setProblem(undefined);setCode("");setGeneratedStdin("");
+    setActiveGeneratedPractice(undefined);setProblem(undefined);setCode("");
     setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setHistory([]);setExamples([]);
     setAssistance(undefined);setAssistanceError("");setHint("");setNotice("");setBusy(false);setGuestRun(false);
     setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");
@@ -405,7 +401,7 @@ function App() {
         </div>
         <div className="submit-bar">
           <div className="shortcut"><TerminalSquare size={16}/><span>代码最大 100,000 字符</span></div>
-          {activeGeneratedPractice?<button className="primary" disabled={busy||practiceEvaluating||!code.trim()} onClick={runGeneratedPractice}>{busy||practiceEvaluating?<LoaderCircle className="spin" size={17}/>:<Sparkles size={17}/>} {busy?statusText[runResult?.status||"QUEUED"]:practiceEvaluating?"AI 评估中":"运行并由 AI 评测"}</button>:<><button className="secondary" disabled={busy||!problem} onClick={runCode} title="使用题目测试用例快速检查"><Play size={16}/>运行</button><button className="primary" disabled={busy || !problem} onClick={submit}>{busy ? <LoaderCircle className="spin" size={17}/> : <Send size={17}/>} {busy ? statusText[submission?.status || "QUEUED"] : "提交评测"}</button></>}
+          {activeGeneratedPractice?<button className="primary" disabled={busy||practiceEvaluating||!code.trim()} onClick={runGeneratedPractice}>{busy||practiceEvaluating?<LoaderCircle className="spin" size={17}/>:<ListChecks size={17}/>} {busy?statusText[runResult?.status||"QUEUED"]:practiceEvaluating?"AI 解释中":"提交确定性评测"}</button>:<><button className="secondary" disabled={busy||!problem} onClick={runCode} title="使用题目测试用例快速检查"><Play size={16}/>运行</button><button className="primary" disabled={busy || !problem} onClick={submit}>{busy ? <LoaderCircle className="spin" size={17}/> : <Send size={17}/>} {busy ? statusText[submission?.status || "QUEUED"] : "提交评测"}</button></>}
         </div>
 
         <div className="box-resizer horizontal" role="separator" aria-label="调整代码编辑区和结果区高度" aria-orientation="horizontal" aria-valuemin={MIN_PANEL_SIZES.bottom} aria-valuemax={1200} aria-valuenow={Math.round(panelSizes.bottom)} tabIndex={0}
@@ -429,7 +425,7 @@ function App() {
         {sideTab === "problem" ? !hasExercise?<ProblemWelcome/>:<div className="problem-copy">
           <div className="problem-heading"><span>{activeGeneratedPractice?"AI 专项练习":`题目 ${problem?.id || "--"}`}</span><h1>{activeTitle}</h1><div>{activeGeneratedPractice?<span><Sparkles size={13}/>{activeGeneratedPractice.modelName}</span>:<><span><Clock3 size={13}/>{problem?.timeLimitMs || 0} ms</span><span>{problem?.memoryLimitMb || 0} MB</span></>}</div></div>
           <Article text={activeGeneratedPractice?.description||problem?.description}/><h3>输入说明</h3><Article text={activeGeneratedPractice?.inputDescription||problem?.inputDescription}/><h3>输出说明</h3><Article text={activeGeneratedPractice?.outputDescription||problem?.outputDescription}/>
-          {activeGeneratedPractice?<><h3>本次终端输入 stdin</h3><textarea className="generated-stdin" value={generatedStdin} onChange={e=>setGeneratedStdin(e.target.value)} spellCheck={false}/><div className="generated-knowledge"><strong>本题练习</strong>{activeGeneratedPractice.knowledgePoints.map(item=><span key={item.id}>{item.name}</span>)}</div><div className="ai-evaluation-note"><Bot size={17}/><span>运行后 AI 会结合题意、代码和 stdout/stderr 判定对错，并更新 BKT 与计划进度。</span></div></>:<><h3>公开运行示例</h3>{examplesLoading ? <p className="example-state"><LoaderCircle className="spin" size={13}/>正在加载示例…</p> : examples.length ? <div className="public-examples">{examples.map((example,index)=><div className="example-card" key={example.id}><b>示例 {index+1}</b><label>输入</label><pre>{example.input || "(空输入)"}</pre><label>期望输出</label><pre>{example.expectedOutput}</pre></div>)}</div> : examplesError ? <div className="example-error"><span>{examplesError}</span><button onClick={()=>problem&&loadExamples(problem.id)}>重试</button></div> : <p className="no-example">教师尚未配置公开示例</p>}</>}
+          {activeGeneratedPractice?<><h3>公开运行示例</h3><div className="public-examples">{activeGeneratedPractice.publicExamples.map((example,index)=><div className="example-card" key={example.id}><b>示例 {index+1}</b><label>输入</label><pre>{example.input||"(空输入)"}</pre><label>期望输出</label><pre>{example.expectedOutput}</pre></div>)}</div><p className="no-example">共 {activeGeneratedPractice.totalTestCases} 个确定性测试点，其余为隐藏用例。</p><div className="generated-knowledge"><strong>本题练习</strong>{activeGeneratedPractice.knowledgePoints.map(item=><span key={item.id}>{item.name}</span>)}</div><div className="ai-evaluation-note"><Bot size={17}/><span>沙箱测试决定对错；AI 只解释错因。同一题只有首次完成评测会更新 BKT。</span></div></>:<><h3>公开运行示例</h3>{examplesLoading ? <p className="example-state"><LoaderCircle className="spin" size={13}/>正在加载示例…</p> : examples.length ? <div className="public-examples">{examples.map((example,index)=><div className="example-card" key={example.id}><b>示例 {index+1}</b><label>输入</label><pre>{example.input || "(空输入)"}</pre><label>期望输出</label><pre>{example.expectedOutput}</pre></div>)}</div> : examplesError ? <div className="example-error"><span>{examplesError}</span><button onClick={()=>problem&&loadExamples(problem.id)}>重试</button></div> : <p className="no-example">教师尚未配置公开示例</p>}</>}
         </div> : sideTab === "coach" ? <div className="coach-panel">
           <div className="coach-intro"><span><Bot size={22}/></span><div><b>CodePath Coach</b><small>基于你的代码和运行证据</small></div></div>
           {activeGeneratedPractice?<AiPracticeCoach evaluation={practiceEvaluation} evaluating={practiceEvaluating} error={practiceEvaluationError} hasRun={!!runResult} onRetry={()=>runResult&&evaluateGeneratedPractice(activeGeneratedPractice,runResult,generatedRunEpoch.current)}/>:<>
@@ -441,7 +437,8 @@ function App() {
           </>}
         </div> : <AssistancePanel user={user} evidence={submission||runResult} canGenerate={!!submission} assistance={assistance} loading={assistanceLoading} error={assistanceError} onRetry={()=>{if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}} generatedPractice={generatedPractice} generating={practiceGenerating} generationError={practiceGenerationError} onGenerate={generatePractice} onOpenGenerated={openGeneratedPractice} onNeedAuth={()=>setAuthOpen(true)}/>}
       </aside>
-    </div> : page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)}/> : <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/>}
+    </div> : page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)} onOpenGenerated={openGeneratedPractice}/> :
+      <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/>}
     <AiWidget key={user.id} user={user} submissionId={submission?.id}/>
     {profileOpen&&<UserProfilePanel user={user} onClose={()=>setProfileOpen(false)} onSaved={profile=>{const next={...user,displayName:profile.displayName};setUser(next);authStore.updateUser(next);setUserAvatar(profile.avatarDataUrl);setProfileOpen(false);}}/>}
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
@@ -490,17 +487,17 @@ function RunResult({result,busy,examples,generated=false}:{result?:Submission;bu
 }
 
 function AiPracticeCoach({evaluation,evaluating,error,hasRun,onRetry}:{evaluation?:AiPracticeEvaluation;evaluating:boolean;error:string;hasRun:boolean;onRetry:()=>void}){
-  if(evaluating)return <div className="coach-empty"><LoaderCircle className="spin" size={28}/><b>AI 教练正在评测</b><p>正在对照题意、代码与终端证据判断正确性。</p></div>;
+  if(evaluating)return <div className="coach-empty"><LoaderCircle className="spin" size={28}/><b>AI 教练正在解释</b><p>对错已由沙箱测试确定，正在整理错因和下一步。</p></div>;
   if(error)return <div className="ai-evaluation-error"><CircleAlert size={15}/><span>{error}</span><button onClick={onRetry}>重试评测</button></div>;
-  if(!evaluation)return <div className="coach-empty"><Sparkles size={30}/><b>{hasRun?"等待 AI 最终评测":"先运行一次代码"}</b><p>沙箱只检查代码能否执行，答案正确性由 AI 教练结合题意判断。</p></div>;
+  if(!evaluation)return <div className="coach-empty"><Sparkles size={30}/><b>{hasRun?"等待 AI 解释":"先提交一次代码"}</b><p>沙箱会运行全部公开和隐藏用例，AI 不参与决定对错。</p></div>;
   return <div className="diagnosis-card"><span className="diagnosis-label">AI 评测 · {evaluation.errorType}</span><h3>{evaluation.correct?"解答正确":"解答还需要调整"}</h3><p>{evaluation.feedback}</p><div className="evaluation-next"><Sparkles size={13}/>{evaluation.nextStep}</div><small>得分 {Math.round(evaluation.score*100)}% · {evaluation.modelName}</small></div>;
 }
 
 function AiPracticeResult({evaluation,evaluating,error,onRetry}:{evaluation?:AiPracticeEvaluation;evaluating:boolean;error:string;onRetry:()=>void}){
-  if(evaluating)return <div className="ai-judging"><LoaderCircle className="spin" size={17}/><span>AI 教练正在对照题意、代码与终端证据…</span></div>;
+  if(evaluating)return <div className="ai-judging"><LoaderCircle className="spin" size={17}/><span>沙箱已完成判定，AI 教练正在生成解释…</span></div>;
   if(error)return <div className="ai-evaluation-error"><CircleAlert size={15}/><span>{error}</span><button onClick={onRetry}>重试评估</button></div>;
   if(!evaluation)return <div className="empty-result"><Bot size={27}/><div><b>等待 AI 评测</b><p>运行代码后，AI 会结合题意和终端输出判断对错。</p></div></div>;
-  return <div className={`ai-evaluation ${evaluation.correct?"correct":"incorrect"}`}><div className="evaluation-head">{evaluation.correct?<Check size={18}/>:<Bot size={18}/>}<span><small>AI 教练评测</small><b>{evaluation.correct?"解答正确":"还需要调整"}</b></span><strong>{Math.round(evaluation.score*100)}</strong></div><p>{evaluation.feedback}</p><div className="evaluation-next"><Sparkles size={13}/>{evaluation.nextStep}</div>{evaluation.masteryChanges.length>0&&<div className="mastery-changes"><span><TrendingUp size={13}/>BKT 掌握度已更新</span>{evaluation.masteryChanges.map(item=><div key={item.knowledgePointId}><b>{item.knowledgePointName}</b><em>{Math.round(item.masteryBefore*100)}% → {Math.round(item.masteryAfter*100)}%</em></div>)}</div>}<small>{evaluation.errorType} · {evaluation.modelName}</small></div>;
+  return <div className={`ai-evaluation ${evaluation.correct?"correct":"incorrect"}`}><div className="evaluation-head">{evaluation.correct?<Check size={18}/>:<Bot size={18}/>}<span><small>沙箱确定性评测</small><b>{evaluation.correct?"解答正确":"还需要调整"}</b></span><strong>{Math.round(evaluation.score*100)}</strong></div><p>{evaluation.feedback}</p><div className="evaluation-next"><Sparkles size={13}/>{evaluation.nextStep}</div>{evaluation.masteryChanges.length>0&&<div className="mastery-changes"><span><TrendingUp size={13}/>BKT 掌握度已更新</span>{evaluation.masteryChanges.map(item=><div key={item.knowledgePointId}><b>{item.knowledgePointName}</b><em>{Math.round(item.masteryBefore*100)}% → {Math.round(item.masteryAfter*100)}%</em></div>)}</div>}{!evaluation.evidenceApplied&&<div className="evaluation-next"><ListChecks size={13}/>该题已有首次可信证据，本次重试不再重复更新 BKT。</div>}<small>{evaluation.errorType} · {evaluation.modelName}</small></div>;
 }
 
 function Result({ submission, busy, passed }: { submission?: Submission; busy: boolean; passed: boolean }) {
@@ -515,7 +512,7 @@ function Result({ submission, busy, passed }: { submission?: Submission; busy: b
 
 function HistoryList({ items, onSelect }: { items: HistoryItem[]; onSelect: (id:number) => void }) {
   if (!items.length) return <div className="empty-result"><History size={26}/><div><b>暂无提交记录</b><p>完成第一次评测后会出现在这里。</p></div></div>;
-  return <div className="history-list">{items.map(item => <button key={item.id} onClick={() => onSelect(item.id)}><span className={item.passedCount === item.totalCount ? "history-ok" : "history-bad"}>{item.passedCount === item.totalCount ? <Check size={14}/> : <CircleAlert size={14}/>}</span><b>#{item.id}</b><span>{item.language}</span><span>{item.passedCount}/{item.totalCount} 通过</span><small>{new Date(item.createdAt).toLocaleString("zh-CN")}</small><ChevronRight size={14}/></button>)}</div>;
+  return <div className="history-list">{items.map(item => <button key={item.id} onClick={() => onSelect(item.id)}><span className={item.passedCount === item.totalCount ? "history-ok" : "history-bad"}>{item.passedCount === item.totalCount ? <Check size={14}/> : <CircleAlert size={14}/>}</span><b>#{item.id}</b><span>{item.language}</span><span>{item.passedCount}/{item.totalCount} 通过</span><small>{parseServerDate(item.createdAt).toLocaleString("zh-CN")}</small><ChevronRight size={14}/></button>)}</div>;
 }
 
 const templates: Record<string,string> = {

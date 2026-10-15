@@ -42,17 +42,16 @@ export function SelfPracticePage({practice,user,onNeedAuth,onExitGenerated}:{pra
   }
   async function evaluate(data:Submission,epoch:number){
     if(!practice||!user)return;
-    const test=data.testResults?.[0];
     setEvaluating(true);setEvaluationError("");
     try {
-      const next=await api.evaluatePractice(practice.id,code,stdin,test?.actualOutput||"",test?.stderr||data.errorMessage||"");
+      const next=await api.finalizeAiPractice(practice.id,data.id);
       if(epoch===runEpoch.current)setEvaluation(next);
     } catch(e){if(epoch===runEpoch.current)setEvaluationError(e instanceof Error?e.message:"AI 教练评估失败");}
     finally {if(epoch===runEpoch.current)setEvaluating(false);}
   }
-  async function poll(id:number,token:string,epoch:number){
+  async function poll(id:number,token:string|undefined,epoch:number){
     try {
-      const data=await api.runDetail(id,token);
+      const data=practice?await api.submission(id):await api.runDetail(id,token||"");
       if(epoch!==runEpoch.current)return;
       setResult(data);
       if(!done.has(data.status)) timer.current=window.setTimeout(()=>poll(id,token,epoch),900);
@@ -65,7 +64,10 @@ export function SelfPracticePage({practice,user,onNeedAuth,onExitGenerated}:{pra
     if(timer.current)clearTimeout(timer.current);
     const epoch=++runEpoch.current;
     setBusy(true);setError("");setEvaluationError("");setResult(undefined);setEvaluation(undefined);
-    try { const accepted=await api.selfPractice(language,code,stdin); if(epoch===runEpoch.current)await poll(accepted.submissionId,accepted.runToken,epoch); }
+    try {
+      if(practice){const accepted=await api.submitAiPractice(practice.id,language,code);if(epoch===runEpoch.current)await poll(accepted.submissionId,undefined,epoch);}
+      else {const accepted=await api.selfPractice(language,code,stdin);if(epoch===runEpoch.current)await poll(accepted.submissionId,accepted.runToken,epoch);}
+    }
     catch(e){if(epoch===runEpoch.current){setBusy(false);setError(e instanceof Error?e.message:"运行失败");}}
   }
   function reset(){

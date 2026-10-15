@@ -41,7 +41,14 @@ def test_generate_practice_parses_structured_model_result(monkeypatch):
           "outputDescription": "输出偶数数量。",
           "starterCode": "nums = list(map(int, input().split()))",
           "stdin": "1 2 4 7",
-          "evaluationCriteria": "输出应为 2。"
+          "evaluationCriteria": "输出偶数数量。",
+          "testCases": [
+            {"input":"1 2 4 7","expectedOutput":"2","hidden":false},
+            {"input":"2 4 6","expectedOutput":"3","hidden":false},
+            {"input":"1 3 5","expectedOutput":"0","hidden":true},
+            {"input":"0","expectedOutput":"1","hidden":true},
+            {"input":"-2 -1 8","expectedOutput":"2","hidden":true}
+          ]
         }
         ```""",
     )
@@ -64,18 +71,18 @@ def test_generate_practice_parses_structured_model_result(monkeypatch):
 
     assert generated.title == "循环计数专项"
     assert generated.stdin == "1 2 4 7"
-    assert generated.evaluationCriteria == "输出应为 2。"
+    assert generated.evaluationCriteria == "输出偶数数量。"
+    assert len(generated.testCases) == 5
+    assert sum(not item.hidden for item in generated.testCases) == 2
     assert generated.modelName == "synthetic-model"
 
 
-def test_evaluation_does_not_treat_string_false_as_correct(monkeypatch):
+def test_evaluation_cannot_override_deterministic_verdict(monkeypatch):
     configure_fake_llm(
         monkeypatch,
         """{
-          "correct": "false",
-          "score": 0.95,
           "feedback": "输出了总和，不是偶数个数。",
-          "errorType": "LOGIC_OR_BOUNDARY",
+          "errorType": "WRONG_ANSWER",
           "nextStep": "先判断每个数是否为偶数。"
         }""",
     )
@@ -88,13 +95,15 @@ def test_evaluation_does_not_treat_string_false_as_correct(monkeypatch):
         knowledgeSummary="循环",
         language="python",
         sourceCode="print(sum(map(int, input().split())))",
-        stdin="1 2 4 7",
-        stdout="14\n",
-        stderr="",
+        correct=False,
+        score=0.4,
+        passedCount=2,
+        totalCount=5,
+        failureSummary="测试点1: WRONG_ANSWER",
     )
 
     result = practice.evaluate_practice(request)
 
     assert result.correct is False
-    assert result.score == 0.95
-    assert result.errorType == "LOGIC_OR_BOUNDARY"
+    assert result.score == 0.4
+    assert result.errorType == "WRONG_ANSWER"

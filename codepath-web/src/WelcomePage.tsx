@@ -1,7 +1,17 @@
-import { FormEvent, useState } from "react";
+import { CSSProperties, FormEvent, useState } from "react";
 import { ArrowRight, Bot, CheckCircle2, CircleAlert, Code2, Eye, EyeOff, LoaderCircle, ShieldCheck, Sparkles, TerminalSquare } from "lucide-react";
 import { api, authStore } from "./api";
 import type { User } from "./types";
+
+const binaryParticles = Array.from({length:42},(_,index)=>({
+  value:["0","1","01","10"][index%4],
+  left:(index*37+11)%97,
+  duration:4.5+(index*5)%6,
+  delay:-((index*13)%21),
+  size:9+(index*5)%13,
+  drift:-38+(index*17)%77,
+  opacity:.16+((index*11)%38)/100
+}));
 
 export function WelcomePage({onSuccess}:{onSuccess:(user:User)=>void}) {
   const [mode,setMode]=useState<"login"|"register">("login");
@@ -21,6 +31,7 @@ export function WelcomePage({onSuccess}:{onSuccess:(user:User)=>void}) {
   return <main className="welcome-page">
     <section className="welcome-visual">
       <div className="welcome-glow glow-one"/><div className="welcome-glow glow-two"/>
+      <div className="binary-field" aria-hidden="true">{binaryParticles.map((particle,index)=><span key={index} style={{"--binary-left":`${particle.left}%`,"--binary-duration":`${particle.duration}s`,"--binary-delay":`${particle.delay}s`,"--binary-size":`${particle.size}px`,"--binary-drift":`${particle.drift}px`,"--binary-opacity":particle.opacity} as CSSProperties}>{particle.value}</span>)}</div>
       <div className="welcome-brand"><span><Code2 size={22}/></span><b>CodePath</b><em>AI 编程教练</em></div>
       <div className="welcome-copy"><span className="welcome-kicker"><Sparkles size={14}/> AI + 编程学习</span><h1>找到错误，<br/><i>也找到下一步。</i></h1><p>不只是告诉你答案。CodePath 会读懂代码的失败证据，诊断根因，并用分层提示引导你自己解决问题。</p></div>
       <div className="welcome-demo">

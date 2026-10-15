@@ -3,6 +3,14 @@ export type UserProfile = User & {
   gender:string; personality:string; country:string; school:string;
   familyAddress:string; major:string; habit:string; avatarDataUrl:string;
 };
+export type LearningAssessmentEvidence = {
+  totalSubmissions:number; passedSubmissions:number; averagePassRate:number; activeDays:number;
+  aiPracticeCount:number; completedPlanItems:number; totalPlanItems:number; masteryKnowledgePoints:number;
+};
+export type LearningAssessment = {
+  overallLevel:string; score:number; summary:string; strengths:string[]; weaknesses:string[];
+  actions:string[]; nextFocus:string; modelName:string; evidence:LearningAssessmentEvidence; generatedAt:string;
+};
 export type Course = { id: number; code: string; name: string; description?: string };
 export type Problem = {
   id: number; courseId: number; title: string; description: string; inputDescription?: string;
@@ -35,15 +43,15 @@ export type AiPracticeKnowledge = { id:number; code:string; name:string };
 export type AiGeneratedPractice = {
   id:number; title:string; description:string; inputDescription:string; outputDescription:string;
   starterCode:string; stdin:string; language:string; difficulty:number;
-  knowledgePoints:AiPracticeKnowledge[]; modelName:string;
+  knowledgePoints:AiPracticeKnowledge[]; publicExamples:PublicExample[]; totalTestCases:number; modelName:string;
 };
 export type MasteryChange = {
   knowledgePointId:number; knowledgePointName:string; masteryBefore:number;
   masteryAfter:number; delta:number; modelName:string;
 };
 export type AiPracticeEvaluation = {
-  correct:boolean; score:number; feedback:string; errorType:string; nextStep:string;
-  modelName:string; masteryChanges:MasteryChange[];
+  submissionId:number; correct:boolean; score:number; feedback:string; errorType:string; nextStep:string;
+  modelName:string; evidenceApplied:boolean; masteryChanges:MasteryChange[];
 };
 export type LearningPlanItem = {
   id:number; taskType:"LEARN"|"PRACTICE"|"REVIEW"|"ASSESSMENT"; title:string;
@@ -86,4 +94,9 @@ export type Assessment = {
   id:number; problem_id:number; problem_title:string; difficulty:number; language:string; status:string;
   passed_count:number; total_count:number; runtime_ms?:number; memory_kb?:number; error_message?:string;
   created_at:string; error_type?:string; root_cause?:string; confidence?:number; next_action?:string; model_name?:string;
+  assessment_type?:"STANDARD"|"AI_PRACTICE"|"KNOWLEDGE_TEST";
+};
+export type GeneratedQuestionSummary = {
+  id:number; title:string; language:string; difficulty:number; source_type:"AI_PRACTICE"|"KNOWLEDGE_TEST";
+  model_name?:string; created_at:string; attempt_count:number; ever_correct:number|boolean;
 };

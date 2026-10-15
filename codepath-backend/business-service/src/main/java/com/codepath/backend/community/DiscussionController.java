@@ -21,7 +21,12 @@ import java.util.Map;
 @RequestMapping("/api/v1/discussions")
 public class DiscussionController {
     private final JdbcClient jdbc;
-    public DiscussionController(JdbcClient jdbc) { this.jdbc = jdbc; }
+    private final DiscussionRealtimePublisher realtime;
+
+    public DiscussionController(JdbcClient jdbc, DiscussionRealtimePublisher realtime) {
+        this.jdbc = jdbc;
+        this.realtime = realtime;
+    }
 
     public record PostRequest(@NotBlank @Size(max=180) String title,
                               @NotBlank @Size(max=20000) String content,
@@ -49,18 +54,25 @@ public class DiscussionController {
     }
 
     @PostMapping
+    @Transactional
     public ApiResponse<Map<String,Object>> create(@AuthenticationPrincipal AppPrincipal user,
                                                    @Valid @RequestBody PostRequest request) {
         jdbc.sql("INSERT INTO discussion_post(user_id,problem_id,title,content,tags) VALUES (:u,:p,:t,:c,:tags)")
             .param("u",user.userId()).param("p",request.problemId(),Types.BIGINT).param("t",request.title())
             .param("c",request.content()).param("tags",request.tags(),Types.VARCHAR).update();
-        return ApiResponse.ok(Map.of("id", jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single()));
+        Long id = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        realtime.publishAfterCommit("POST_CREATED", id);
+        return ApiResponse.ok(Map.of("id", id));
     }
 
     @GetMapping("/{id}")
     @Transactional
-    public ApiResponse<Map<String,Object>> detail(@PathVariable Long id) {
-        jdbc.sql("UPDATE discussion_post SET view_count=view_count+1 WHERE id=:id AND status='PUBLISHED'").param("id",id).update();
+    public ApiResponse<Map<String,Object>> detail(@PathVariable Long id,
+                                                   @RequestParam(defaultValue="true") boolean trackView) {
+        if (trackView) {
+            jdbc.sql("UPDATE discussion_post SET view_count=view_count+1 WHERE id=:id AND status='PUBLISHED'")
+                    .param("id",id).update();
+        }
         List<Map<String,Object>> posts=jdbc.sql("""
             SELECT p.id,p.title,p.content,p.tags,p.problem_id,p.view_count,p.created_at,
                    u.id author_id,u.display_name author_name,u.role author_role,pr.title problem_title
@@ -78,12 +90,15 @@ public class DiscussionController {
     }
 
     @PostMapping("/{id}/comments")
+    @Transactional
     public ApiResponse<Map<String,Object>> comment(@AuthenticationPrincipal AppPrincipal user,@PathVariable Long id,
                                                     @Valid @RequestBody CommentRequest request) {
         Integer count=jdbc.sql("SELECT COUNT(*) FROM discussion_post WHERE id=:id AND status='PUBLISHED'").param("id",id).query(Integer.class).single();
         if(count==0) throw new BusinessException(HttpStatus.NOT_FOUND,"讨论不存在");
         jdbc.sql("INSERT INTO discussion_comment(post_id,user_id,content) VALUES (:p,:u,:c)")
             .param("p",id).param("u",user.userId()).param("c",request.content()).update();
-        return ApiResponse.ok(Map.of("id",jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single()));
+        Long commentId = jdbc.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        realtime.publishAfterCommit("COMMENT_CREATED", id);
+        return ApiResponse.ok(Map.of("id", commentId));
     }
 }

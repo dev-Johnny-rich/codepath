@@ -11,7 +11,7 @@ class Settings:
     llm_base_url = os.getenv("LLM_BASE_URL", "")
     llm_api_key = os.getenv("LLM_API_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "")
-    llm_timeout_seconds = float(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+    llm_timeout_seconds = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
     max_attempts = int(os.getenv("WORKER_MAX_ATTEMPTS", "3"))
     diagnosis_dlq = os.getenv("DIAGNOSIS_DLQ", "codepath:diagnosis:dlq")
 

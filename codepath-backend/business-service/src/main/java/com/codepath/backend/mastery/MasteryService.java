@@ -96,7 +96,7 @@ public class MasteryService {
     }
 
     @Transactional
-    public List<MasteryChange> updateFromAiPractice(Long userId, List<Long> knowledgePointIds,
+    public List<MasteryChange> updateFromAiPractice(Long userId, Long submissionId, List<Long> knowledgePointIds,
                                                      double score, String errorType) {
         BigDecimal passRate = BigDecimal.valueOf(Math.max(0, Math.min(1, score)))
                 .setScale(4, RoundingMode.HALF_UP);
@@ -129,9 +129,9 @@ public class MasteryService {
                 model = "fixed-delta-fallback";
             }
             masteryRepository.save(mastery);
-            eventRepository.save(MasteryEvent.create(userId, knowledgePointId, null,
-                    "AI_PRACTICE_EVALUATED", delta, before, mastery.getMastery(),
-                    "模型=" + model + "，AI 教练评分=" + passRate + "，错因类型=" + errorType));
+            eventRepository.save(MasteryEvent.create(userId, knowledgePointId, submissionId,
+                    "AI_PRACTICE_VERIFIED", delta, before, mastery.getMastery(),
+                    "模型=" + model + "，沙箱确定性通过率=" + passRate + "，错因类型=" + errorType));
             changes.add(new MasteryChange(knowledgePointId, point.getName(), before,
                     mastery.getMastery(), delta, model));
         }

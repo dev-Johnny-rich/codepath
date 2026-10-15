@@ -9,4 +9,7 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     List<TestCase> findByProblemIdAndHiddenFalseOrderBySortOrderAsc(Long problemId);
     long countByProblemId(Long problemId);
     long countByProblemIdAndHiddenFalse(Long problemId);
+    List<TestCase> findByGeneratedProblemIdOrderBySortOrderAsc(Long generatedProblemId);
+    List<TestCase> findByGeneratedProblemIdAndHiddenFalseOrderBySortOrderAsc(Long generatedProblemId);
+    long countByGeneratedProblemId(Long generatedProblemId);
 }

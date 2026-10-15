@@ -15,8 +15,11 @@ public class TestCase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "problem_id", nullable = false)
+    @Column(name = "problem_id")
     private Long problemId;
+
+    @Column(name = "generated_problem_id")
+    private Long generatedProblemId;
 
     @Column(name = "input_data", columnDefinition = "MEDIUMTEXT")
     private String inputData;
@@ -41,6 +44,18 @@ public class TestCase {
         testCase.expectedOutput = expectedOutput;
         testCase.hidden = hidden;
         testCase.weight = weight;
+        testCase.sortOrder = sortOrder;
+        return testCase;
+    }
+
+    public static TestCase createForAiPractice(Long generatedProblemId, String inputData,
+                                               String expectedOutput, boolean hidden, Integer sortOrder) {
+        TestCase testCase = new TestCase();
+        testCase.generatedProblemId = generatedProblemId;
+        testCase.inputData = inputData;
+        testCase.expectedOutput = expectedOutput;
+        testCase.hidden = hidden;
+        testCase.weight = BigDecimal.ONE;
         testCase.sortOrder = sortOrder;
         return testCase;
     }

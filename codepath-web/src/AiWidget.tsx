@@ -2,6 +2,7 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Bot, ChevronRight, History, LoaderCircle, Maximize2, MessageSquarePlus, Send, Sparkles, X } from "lucide-react";
 import { api } from "./api";
 import type { CoachConversation, User } from "./types";
+import { parseServerDate } from "./date";
 import "./ai-history.css";
 
 type ChatMessage = { role:"user"|"assistant"; content:string };
@@ -82,7 +83,7 @@ export function AiWidget({user,submissionId}:{user:User;submissionId?:number}) {
 }
 
 function formatDate(value:string){
-  const date=new Date(value);
+  const date=parseServerDate(value);
   if(Number.isNaN(date.getTime()))return "最近更新";
   return new Intl.DateTimeFormat("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(date);
 }

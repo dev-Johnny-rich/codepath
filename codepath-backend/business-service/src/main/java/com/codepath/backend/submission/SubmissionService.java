@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SubmissionService {
@@ -67,6 +68,30 @@ public class SubmissionService {
                 .param("id", submission.getId())
                 .param("input", request.stdin() == null ? "" : request.stdin())
                 .update();
+        eventPublisher.publishEvent(new ExecutionQueuedEvent(submission.getId()));
+        return new SubmissionAcceptedResponse(submission.getId(), submission.getStatus());
+    }
+
+    @Transactional
+    public SubmissionAcceptedResponse createAiPractice(Long userId, Long generatedProblemId,
+                                                       CreateSubmissionRequest request) {
+        Map<String, Object> problem = jdbc.sql("""
+                SELECT id,language FROM ai_generated_problem WHERE id=:id AND user_id=:userId
+                """).param("id", generatedProblemId).param("userId", userId)
+                .query().listOfRows().stream().findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 练习题不存在"));
+        String language = request.language().trim().toLowerCase().replace("c++", "cpp");
+        String expectedLanguage = problem.get("language").toString().toLowerCase().replace("c++", "cpp");
+        if (!language.equals(expectedLanguage)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "请使用题目指定语言：" + expectedLanguage);
+        }
+        int totalCount = Math.toIntExact(testCaseRepository.countByGeneratedProblemId(generatedProblemId));
+        if (totalCount < 5) {
+            throw new BusinessException(HttpStatus.CONFLICT, "AI 题目缺少可信测试用例，请重新生成");
+        }
+        Submission submission = Submission.queuedForAiPractice(
+                userId, generatedProblemId, language, request.sourceCode(), totalCount);
+        submissionRepository.save(submission);
         eventPublisher.publishEvent(new ExecutionQueuedEvent(submission.getId()));
         return new SubmissionAcceptedResponse(submission.getId(), submission.getStatus());
     }
@@ -135,6 +160,17 @@ public class SubmissionService {
     @Transactional(readOnly = true)
     public ExecutionTaskResponse executionTask(Long submissionId) {
         Submission submission = getSubmission(submissionId);
+        if (submission.getAiGeneratedProblemId() != null) {
+            List<ExecutionTaskResponse.TestCaseData> generatedCases = testCaseRepository
+                    .findByGeneratedProblemIdOrderBySortOrderAsc(submission.getAiGeneratedProblemId())
+                    .stream().map(test -> new ExecutionTaskResponse.TestCaseData(
+                            test.getId(), test.getInputData(), test.getExpectedOutput())).toList();
+            if (generatedCases.isEmpty()) {
+                throw new BusinessException(HttpStatus.CONFLICT, "AI 题目没有测试用例");
+            }
+            return new ExecutionTaskResponse(submission.getId(), submission.getLanguage(),
+                    submission.getSourceCode(), 5000, 256, generatedCases);
+        }
         Problem problem = problemRepository.findById(submission.getProblemId())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "题目不存在"));
         List<String> selfInputs = jdbc.sql("SELECT input_data FROM self_practice_input WHERE submission_id=:id")
@@ -196,6 +232,11 @@ public class SubmissionService {
                 .param("id", submissionId).query(Integer.class).single();
         if (selfPractice > 0) {
             // 自由运行只能证明程序可执行；没有标准输出时不能产生“全部测试通过”诊断。
+            submission.transitionTo(SubmissionStatus.COMPLETED);
+            return;
+        }
+        if (submission.getAiGeneratedProblemId() != null) {
+            // AI 题的对错已由隔离沙箱对全部公开/隐藏用例确定，不进入标准题诊断队列。
             submission.transitionTo(SubmissionStatus.COMPLETED);
             return;
         }

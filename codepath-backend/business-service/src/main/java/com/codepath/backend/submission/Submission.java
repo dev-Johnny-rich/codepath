@@ -34,8 +34,11 @@ public class Submission {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "problem_id", nullable = false)
+    @Column(name = "problem_id")
     private Long problemId;
+
+    @Column(name = "ai_generated_problem_id")
+    private Long aiGeneratedProblemId;
 
     @Column(nullable = false)
     private String language;
@@ -75,6 +78,19 @@ public class Submission {
         Submission submission = new Submission();
         submission.userId = userId;
         submission.problemId = problemId;
+        submission.language = language;
+        submission.sourceCode = sourceCode;
+        submission.status = SubmissionStatus.QUEUED;
+        submission.passedCount = 0;
+        submission.totalCount = totalCount;
+        return submission;
+    }
+
+    public static Submission queuedForAiPractice(Long userId, Long generatedProblemId, String language,
+                                                 String sourceCode, int totalCount) {
+        Submission submission = new Submission();
+        submission.userId = userId;
+        submission.aiGeneratedProblemId = generatedProblemId;
         submission.language = language;
         submission.sourceCode = sourceCode;
         submission.status = SubmissionStatus.QUEUED;
