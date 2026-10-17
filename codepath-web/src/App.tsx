@@ -26,7 +26,8 @@ type PracticeWorkspaceDraft =
   | { kind:"generated"; practice:AiGeneratedPractice; code:string };
 
 const terminalStates = new Set(["COMPLETED", "FAILED"]);
-const PRACTICE_WORKSPACE_KEY = "codepath-practice-workspace";
+const PRACTICE_WORKSPACE_KEY_PREFIX = "codepath-practice-workspace";
+const GENERATED_PRACTICE_KEY_PREFIX = "codepath-generated-practice";
 const DEFAULT_PANEL_SIZES = { left: 250, right: 350, bottom: 235 };
 const MIN_PANEL_SIZES = { left: 180, right: 260, bottom: 120, editor: 160, center: 420 };
 const RESIZER_SIZE = 8;
@@ -44,13 +45,32 @@ function storedPanelSize(key:keyof typeof DEFAULT_PANEL_SIZES) {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_PANEL_SIZES[key];
 }
 
-function storedPracticeWorkspace():PracticeWorkspaceDraft|null {
+function userStorageKey(prefix:string,userId:number) {
+  return `${prefix}:${userId}`;
+}
+
+function practiceWorkspaceKey(userId:number) {
+  return userStorageKey(PRACTICE_WORKSPACE_KEY_PREFIX,userId);
+}
+
+function generatedPracticeKey(userId:number) {
+  return userStorageKey(GENERATED_PRACTICE_KEY_PREFIX,userId);
+}
+
+function storedPracticeWorkspace(userId?:number):PracticeWorkspaceDraft|null {
+  if(!userId)return null;
   try {
-    const value=JSON.parse(localStorage.getItem(PRACTICE_WORKSPACE_KEY)||"null") as PracticeWorkspaceDraft|null;
+    const value=JSON.parse(localStorage.getItem(practiceWorkspaceKey(userId))||"null") as PracticeWorkspaceDraft|null;
     if(value?.kind==="problem"&&Number.isFinite(value.problem?.id)&&Number.isFinite(value.problem?.courseId)&&typeof value.code==="string")return value;
     if(value?.kind==="generated"&&value.practice?.id&&typeof value.code==="string")return value;
   } catch { /* Ignore an invalid or outdated local draft. */ }
   return null;
+}
+
+function storedGeneratedPractice(userId?:number):AiGeneratedPractice|undefined {
+  if(!userId)return undefined;
+  try { return JSON.parse(localStorage.getItem(generatedPracticeKey(userId))||"null")||undefined; }
+  catch { return undefined; }
 }
 
 function AuthDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: (user: User) => void }) {
@@ -92,7 +112,8 @@ function AuthDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: (u
 }
 
 function App() {
-  const practiceWorkspace = useRef<PracticeWorkspaceDraft|null>(storedPracticeWorkspace());
+  const initialUser = useRef<User|null>(authStore.user());
+  const practiceWorkspace = useRef<PracticeWorkspaceDraft|null>(storedPracticeWorkspace(initialUser.current?.id));
   const initialPage = (["practice","plan","discuss","interview","self-practice"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "practice") as PageName;
   const [page, setPageState] = useState<PageName>(initialPage);
   const [interviewKey, setInterviewKey] = useState(0);
@@ -101,7 +122,7 @@ function App() {
     setPageState(next);
     if(next === "interview") setInterviewKey(prev => prev + 1);
   };
-  const [user, setUser] = useState<User | null>(authStore.user());
+  const [user, setUser] = useState<User | null>(initialUser.current);
   const [authOpen, setAuthOpen] = useState(false);
   const [profileOpen,setProfileOpen]=useState(false);
   const [userAvatar,setUserAvatar]=useState("");
@@ -122,10 +143,7 @@ function App() {
   const [assistance, setAssistance] = useState<LearningAssistance>();
   const [assistanceLoading, setAssistanceLoading] = useState(false);
   const [assistanceError, setAssistanceError] = useState("");
-  const [generatedPractice, setGeneratedPractice] = useState<AiGeneratedPractice|undefined>(()=>{
-    try { return JSON.parse(localStorage.getItem("codepath-generated-practice")||"null")||undefined; }
-    catch { return undefined; }
-  });
+  const [generatedPractice, setGeneratedPractice] = useState<AiGeneratedPractice|undefined>(()=>storedGeneratedPractice(initialUser.current?.id));
   const [activeGeneratedPractice,setActiveGeneratedPractice]=useState<AiGeneratedPractice|undefined>(()=>practiceWorkspace.current?.kind==="generated"?practiceWorkspace.current.practice:undefined);
   const [practiceEvaluation,setPracticeEvaluation]=useState<AiPracticeEvaluation>();
   const [practiceEvaluating,setPracticeEvaluating]=useState(false);
@@ -174,6 +192,23 @@ function App() {
   useEffect(()=>{
     persistPracticeWorkspace(code);
   },[activeGeneratedPractice,problem,code]);
+  useEffect(()=>{
+    if(!user)return;
+    const draft=storedPracticeWorkspace(user.id);
+    practiceWorkspace.current=draft;
+    ++generatedRunEpoch.current;
+    if(pollRef.current)window.clearTimeout(pollRef.current);
+    setGeneratedPractice(storedGeneratedPractice(user.id));
+    setActiveGeneratedPractice(draft?.kind==="generated"?draft.practice:undefined);
+    setProblem(draft?.kind==="problem"?draft.problem:undefined);
+    setCourseId(draft?.kind==="problem"?draft.problem.courseId:(courses[0]?.id));
+    setCode(draft?.code||"");
+    setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setHistory([]);setExamples([]);
+    setAssistance(undefined);setAssistanceError("");setHint("");setNotice("");setBusy(false);setGuestRun(false);
+    setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");
+    setTab("run");setSideTab("problem");
+    if(draft?.kind==="problem")api.history(draft.problem.id).then(p=>setHistory(p.content)).catch(()=>{});
+  },[user?.id]);
   useEffect(()=>{if(problem)loadExamples(problem.id);},[problem?.id]);
   useEffect(() => {
     if(!user){setActivePlan(undefined);return;}
@@ -247,12 +282,13 @@ function App() {
   }
 
   function persistPracticeWorkspace(nextCode:string) {
+    if(!user)return;
     const draft:PracticeWorkspaceDraft|undefined=activeGeneratedPractice
       ? {kind:"generated",practice:activeGeneratedPractice,code:nextCode}
       : problem ? {kind:"problem",problem,code:nextCode} : undefined;
     if(!draft)return;
     practiceWorkspace.current=draft;
-    localStorage.setItem(PRACTICE_WORKSPACE_KEY,JSON.stringify(draft));
+    localStorage.setItem(practiceWorkspaceKey(user.id),JSON.stringify(draft));
   }
 
   function updatePracticeCode(nextCode:string) {
@@ -366,14 +402,14 @@ function App() {
     try {
       const generated=await api.generatePractice(submission.id);
       setGeneratedPractice(generated);
-      localStorage.setItem("codepath-generated-practice",JSON.stringify(generated));
+      if(user)localStorage.setItem(generatedPracticeKey(user.id),JSON.stringify(generated));
     } catch(e) { setPracticeGenerationError(e instanceof Error?e.message:"AI 生题失败"); }
     finally { setPracticeGenerating(false); }
   }
   function openGeneratedPractice(item:AiGeneratedPractice) {
     ++generatedRunEpoch.current;
     setGeneratedPractice(item);
-    localStorage.setItem("codepath-generated-practice",JSON.stringify(item));
+    if(user)localStorage.setItem(generatedPracticeKey(user.id),JSON.stringify(item));
     setActiveGeneratedPractice(item);setCode(item.starterCode||templates[item.language.toLowerCase()]||"");
     setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setAssistance(undefined);setAssistanceError("");setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");setNotice("");setTab("run");setSideTab("problem");
     setPage("practice");
@@ -385,7 +421,7 @@ function App() {
     }
     ++generatedRunEpoch.current;
     if(pollRef.current)window.clearTimeout(pollRef.current);
-    practiceWorkspace.current=null;localStorage.removeItem(PRACTICE_WORKSPACE_KEY);
+    practiceWorkspace.current=null;if(user)localStorage.removeItem(practiceWorkspaceKey(user.id));
     setActiveGeneratedPractice(undefined);setProblem(undefined);setCode("");
     setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setHistory([]);setExamples([]);
     setAssistance(undefined);setAssistanceError("");setHint("");setNotice("");setBusy(false);setGuestRun(false);
@@ -411,7 +447,10 @@ function App() {
     catch (e) { setHint(e instanceof Error ? e.message : "提示请求失败"); }
     finally { setHintLoading(0); }
   }
-  function logout() { authStore.clear(); setUser(null); setUserAvatar(""); setProfileOpen(false); setHistory([]); setActivePlan(undefined); }
+  function logout() {
+    persistPracticeWorkspace(practiceEditorRef.current?.getValue()??code);
+    authStore.clear();setUser(null);setUserAvatar("");setProfileOpen(false);setHistory([]);setActivePlan(undefined);
+  }
   const passed = submission && submission.totalCount > 0 && submission.passedCount === submission.totalCount;
   const coachResult = guestRun ? runResult : submission;
   const activeDiff = useMemo(() => difficulty(activeGeneratedPractice?.difficulty||problem?.difficulty||1), [problem,activeGeneratedPractice]);
@@ -419,7 +458,7 @@ function App() {
   const activeTitle=activeGeneratedPractice?.title||problem?.title||"CodePath";
   const activeLanguage=activeGeneratedPractice?.language||problem?.language;
 
-  if (!user) return <WelcomePage onSuccess={u=>{setUser(u);if(problem)api.history(problem.id).then(p=>setHistory(p.content));}}/>;
+  if (!user) return <WelcomePage onSuccess={setUser}/>;
 
   return <div className="app-shell">
     <header>
@@ -430,7 +469,7 @@ function App() {
     </header>
 
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
-    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={u => { setUser(u); if (problem) api.history(problem.id).then(p => setHistory(p.content)); }}/>}
+    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={setUser}/>}
     <div ref={workspaceRef} className={`workspace resizable-workspace${resizeTarget ? ` resizing-${resizeTarget}` : ""}`}
       style={{gridTemplateColumns:`${panelSizes.left}px ${RESIZER_SIZE}px minmax(${MIN_PANEL_SIZES.center}px, 1fr) ${RESIZER_SIZE}px ${panelSizes.right}px`,display:page==="practice"?undefined:"none"}}>
       <aside className="problem-nav">
@@ -498,7 +537,7 @@ function App() {
     <AiWidget key={user.id} user={user} submissionId={submission?.id}/>
     {profileOpen&&<UserProfilePanel user={user} onClose={()=>setProfileOpen(false)} onSaved={profile=>{const next={...user,displayName:profile.displayName};setUser(next);authStore.updateUser(next);setUserAvatar(profile.avatarDataUrl);setProfileOpen(false);}}/>}
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
-    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={u => { setUser(u); if (problem) api.history(problem.id).then(p => setHistory(p.content)); }}/>}
+    {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={setUser}/>}
   </div>;
 }
 
