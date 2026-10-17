@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
 import "./community.css";
+import "./interview.css";
 import "./responsive.css";
 import "./examples.css";
 import "./self-practice.css";

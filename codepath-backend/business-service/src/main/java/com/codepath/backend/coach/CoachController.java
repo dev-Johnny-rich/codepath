@@ -81,6 +81,7 @@ public class CoachController {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("messages", history);
         payload.put("context", buildContext((Number) conversation.get("submission_id"), request.content()));
+        payload.put("mode", "AI 模拟面试".equals(Objects.toString(conversation.get("title"))) ? "interview" : "coach");
         Map response = ai.post().uri("/v1/coach/chat").body(payload).retrieve().body(Map.class);
         String content = Objects.toString(response.get("content"));
         String model = Objects.toString(response.get("modelName"));
@@ -105,7 +106,7 @@ public class CoachController {
     }
 
     private Map<String, Object> verifyConversation(Long id, Long userId) {
-        List<Map<String, Object>> rows = jdbc.sql("SELECT id,submission_id FROM ai_conversation WHERE id=:id AND user_id=:u")
+        List<Map<String, Object>> rows = jdbc.sql("SELECT id,submission_id,title FROM ai_conversation WHERE id=:id AND user_id=:u")
             .param("id", id).param("u", userId).query().listOfRows();
         if (rows.isEmpty()) throw new BusinessException(HttpStatus.NOT_FOUND, "会话不存在");
         return rows.getFirst();
