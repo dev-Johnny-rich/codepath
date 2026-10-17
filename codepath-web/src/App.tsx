@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
+import type { OnMount } from "@monaco-editor/react";
 import {
   BookOpen, Bot, Check, ChevronRight, CircleAlert, Clock3, Code2, History,
   ArrowRight, BookMarked, ExternalLink, Lightbulb, ListChecks, LoaderCircle, LogIn, LogOut, Play, RotateCcw,
   Send, Sparkles, Target, TerminalSquare, TrendingUp, UserRound, X
 } from "lucide-react";
-import { api, authStore } from "./api";
+import { api, AUTH_EXPIRED_EVENT, authStore } from "./api";
 import type { AiGeneratedPractice, AiPracticeEvaluation, Course, HistoryItem, LearningAssistance, LearningPlan, Problem, PublicExample, Submission, User } from "./types";
 import { DiscussPage, InterviewPage } from "./CommunityPages";
 import { SelfPracticePage } from "./SelfPracticePage";
@@ -20,8 +21,12 @@ import "./practice-empty.css";
 
 type PageName = "practice"|"plan"|"discuss"|"interview"|"self-practice";
 type ResizeTarget = "left" | "right" | "bottom";
+type PracticeWorkspaceDraft =
+  | { kind:"problem"; problem:Problem; code:string }
+  | { kind:"generated"; practice:AiGeneratedPractice; code:string };
 
 const terminalStates = new Set(["COMPLETED", "FAILED"]);
+const PRACTICE_WORKSPACE_KEY = "codepath-practice-workspace";
 const DEFAULT_PANEL_SIZES = { left: 250, right: 350, bottom: 235 };
 const MIN_PANEL_SIZES = { left: 180, right: 260, bottom: 120, editor: 160, center: 420 };
 const RESIZER_SIZE = 8;
@@ -37,6 +42,15 @@ function difficulty(value: number) {
 function storedPanelSize(key:keyof typeof DEFAULT_PANEL_SIZES) {
   const value = Number(localStorage.getItem(`codepath-panel-${key}`));
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_PANEL_SIZES[key];
+}
+
+function storedPracticeWorkspace():PracticeWorkspaceDraft|null {
+  try {
+    const value=JSON.parse(localStorage.getItem(PRACTICE_WORKSPACE_KEY)||"null") as PracticeWorkspaceDraft|null;
+    if(value?.kind==="problem"&&Number.isFinite(value.problem?.id)&&Number.isFinite(value.problem?.courseId)&&typeof value.code==="string")return value;
+    if(value?.kind==="generated"&&value.practice?.id&&typeof value.code==="string")return value;
+  } catch { /* Ignore an invalid or outdated local draft. */ }
+  return null;
 }
 
 function AuthDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: (user: User) => void }) {
@@ -78,6 +92,7 @@ function AuthDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: (u
 }
 
 function App() {
+  const practiceWorkspace = useRef<PracticeWorkspaceDraft|null>(storedPracticeWorkspace());
   const initialPage = (["practice","plan","discuss","interview","self-practice"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "practice") as PageName;
   const [page, setPageState] = useState<PageName>(initialPage);
   const [interviewKey, setInterviewKey] = useState(0);
@@ -91,13 +106,13 @@ function App() {
   const [profileOpen,setProfileOpen]=useState(false);
   const [userAvatar,setUserAvatar]=useState("");
   const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState<number>();
+  const [courseId, setCourseId] = useState<number|undefined>(()=>practiceWorkspace.current?.kind==="problem"?practiceWorkspace.current.problem.courseId:undefined);
   const [problems, setProblems] = useState<Problem[]>([]);
-  const [problem, setProblem] = useState<Problem>();
+  const [problem, setProblem] = useState<Problem|undefined>(()=>practiceWorkspace.current?.kind==="problem"?practiceWorkspace.current.problem:undefined);
   const [examples, setExamples] = useState<PublicExample[]>([]);
   const [examplesLoading, setExamplesLoading] = useState(false);
   const [examplesError, setExamplesError] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(()=>practiceWorkspace.current?.code||"");
   const [submission, setSubmission] = useState<Submission>();
   const [runResult, setRunResult] = useState<Submission>();
   const [runAccess,setRunAccess]=useState<{id:number;token:string}>();
@@ -111,7 +126,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem("codepath-generated-practice")||"null")||undefined; }
     catch { return undefined; }
   });
-  const [activeGeneratedPractice,setActiveGeneratedPractice]=useState<AiGeneratedPractice>();
+  const [activeGeneratedPractice,setActiveGeneratedPractice]=useState<AiGeneratedPractice|undefined>(()=>practiceWorkspace.current?.kind==="generated"?practiceWorkspace.current.practice:undefined);
   const [practiceEvaluation,setPracticeEvaluation]=useState<AiPracticeEvaluation>();
   const [practiceEvaluating,setPracticeEvaluating]=useState(false);
   const [practiceEvaluationError,setPracticeEvaluationError]=useState("");
@@ -128,14 +143,38 @@ function App() {
   }));
   const [resizeTarget, setResizeTarget] = useState<ResizeTarget | null>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const practiceEditorRef = useRef<Parameters<OnMount>[0]|null>(null);
   const pollRef = useRef<number>();
   const generatedRunEpoch = useRef(0);
 
-  useEffect(() => { api.courses().then(data => { setCourses(data); if (data[0]) setCourseId(data[0].id); }).catch(e => setNotice(e.message)); }, []);
+  useEffect(() => { api.courses().then(data => { setCourses(data); if (data[0]) setCourseId(current=>current??data[0].id); }).catch(e => setNotice(e.message)); }, []);
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null);setUserAvatar("");setProfileOpen(false);setHistory([]);setActivePlan(undefined);
+      setBusy(false);setNotice("");
+    };
+    const handleStorage = (event:StorageEvent) => {
+      if(event.key==="codepath_access_token"&&!event.newValue)handleAuthExpired();
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT,handleAuthExpired);
+    window.addEventListener("storage",handleStorage);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT,handleAuthExpired);
+      window.removeEventListener("storage",handleStorage);
+    };
+  },[]);
   useEffect(() => { if (!courseId) return; api.problems(courseId).then(data => {
     setProblems(data);
-    setProblem(current => current && data.some(item => item.id === current.id) ? current : undefined);
+    setProblem(current => {
+      if(current&&data.some(item=>item.id===current.id))return current;
+      const draft=practiceWorkspace.current;
+      return draft?.kind==="problem"&&draft.problem.courseId===courseId?draft.problem:undefined;
+    });
   }).catch(e => setNotice(e.message)); }, [courseId]);
+  useEffect(()=>{
+    persistPracticeWorkspace(code);
+  },[activeGeneratedPractice,problem,code]);
+  useEffect(()=>{if(problem)loadExamples(problem.id);},[problem?.id]);
   useEffect(() => {
     if(!user){setActivePlan(undefined);return;}
     api.activeLearningPlan().then(setActivePlan).catch(()=>setActivePlan(null));
@@ -207,11 +246,24 @@ function App() {
     setPanelSizes(current => ({...current,[target]:DEFAULT_PANEL_SIZES[target]}));
   }
 
+  function persistPracticeWorkspace(nextCode:string) {
+    const draft:PracticeWorkspaceDraft|undefined=activeGeneratedPractice
+      ? {kind:"generated",practice:activeGeneratedPractice,code:nextCode}
+      : problem ? {kind:"problem",problem,code:nextCode} : undefined;
+    if(!draft)return;
+    practiceWorkspace.current=draft;
+    localStorage.setItem(PRACTICE_WORKSPACE_KEY,JSON.stringify(draft));
+  }
+
+  function updatePracticeCode(nextCode:string) {
+    setCode(nextCode);
+    persistPracticeWorkspace(nextCode);
+  }
+
   async function chooseProblem(item: Problem) {
     ++generatedRunEpoch.current; setActiveGeneratedPractice(undefined); setPracticeEvaluation(undefined); setPracticeEvaluating(false); setPracticeEvaluationError("");
     setProblem(item); setCode(item.starterCode || templates[item.language.toLowerCase()] || "");
     setSubmission(undefined); setRunResult(undefined); setRunAccess(undefined); setHint(""); setAssistance(undefined); setAssistanceError(""); setTab("run");
-    loadExamples(item.id);
     if (user) api.history(item.id).then(p => setHistory(p.content)).catch(() => {});
   }
   async function loadExamples(problemId:number) {
@@ -333,6 +385,7 @@ function App() {
     }
     ++generatedRunEpoch.current;
     if(pollRef.current)window.clearTimeout(pollRef.current);
+    practiceWorkspace.current=null;localStorage.removeItem(PRACTICE_WORKSPACE_KEY);
     setActiveGeneratedPractice(undefined);setProblem(undefined);setCode("");
     setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);setHistory([]);setExamples([]);
     setAssistance(undefined);setAssistanceError("");setHint("");setNotice("");setBusy(false);setGuestRun(false);
@@ -340,8 +393,9 @@ function App() {
     setTab("run");setSideTab("problem");
   }
   function openFreePractice() {
-    ++generatedRunEpoch.current;setActiveGeneratedPractice(undefined);setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");
-    if(problem)setCode(problem.starterCode||templates[problem.language.toLowerCase()]||"");
+    const latestCode=practiceEditorRef.current?.getValue()??code;
+    setCode(latestCode);
+    persistPracticeWorkspace(latestCode);
     setPage("self-practice");
   }
   async function openPlanProblem(id:number) {
@@ -377,8 +431,8 @@ function App() {
 
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}
     {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={u => { setUser(u); if (problem) api.history(problem.id).then(p => setHistory(p.content)); }}/>}
-    {page === "practice" ? <div ref={workspaceRef} className={`workspace resizable-workspace${resizeTarget ? ` resizing-${resizeTarget}` : ""}`}
-      style={{gridTemplateColumns:`${panelSizes.left}px ${RESIZER_SIZE}px minmax(${MIN_PANEL_SIZES.center}px, 1fr) ${RESIZER_SIZE}px ${panelSizes.right}px`}}>
+    <div ref={workspaceRef} className={`workspace resizable-workspace${resizeTarget ? ` resizing-${resizeTarget}` : ""}`}
+      style={{gridTemplateColumns:`${panelSizes.left}px ${RESIZER_SIZE}px minmax(${MIN_PANEL_SIZES.center}px, 1fr) ${RESIZER_SIZE}px ${panelSizes.right}px`,display:page==="practice"?undefined:"none"}}>
       <aside className="problem-nav">
         <div className="nav-title"><BookOpen size={16}/><span>学习路径</span></div>
         {activePlan?<><div className="path-plan-head"><span>{activePlan.courseName}</span><b>{activePlan.title}</b><button onClick={()=>setPage("plan")}>管理计划<ChevronRight size={13}/></button></div><div className="progress-card"><div><span>计划完成度</span><b>{Math.round(activePlan.planProgress*100)}%</b></div><div className="progress"><i style={{width:`${Math.round(activePlan.planProgress*100)}%`}}/></div><small>{activePlan.completedMinutes} / {activePlan.totalMinutes} 分钟任务权重</small></div><div className="path-stages">{activePlan.stages.map(stage=><section key={stage.id}><h4><span>W{stage.weekNumber}</span>{stage.title}</h4>{stage.items.map(item=><button key={item.id} className={item.status==="COMPLETED"?"done":""} onClick={()=>item.problemId?openPlanProblem(item.problemId):setPage("plan")}><i>{item.status==="COMPLETED"?<Check size={11}/>:null}</i><span><b>{item.title}</b><small>{item.taskType} · {item.estimatedMinutes} 分钟</small></span><ChevronRight size={13}/></button>)}</section>)}</div></>:<div className="path-empty"><Sparkles size={26}/><b>{user?"还没有学习计划":"登录后开启个性化路径"}</b><p>AI 会根据目标、时间和掌握度生成学习路径。</p><button onClick={()=>user?setPage("plan"):setAuthOpen(true)}>{user?"生成学习计划":"登录 / 注册"}</button></div>}
@@ -396,7 +450,8 @@ function App() {
         </div>
         <div className="editor-wrap">
           {hasExercise?<Editor height="100%" theme="vs-dark" language={monacoLanguage(activeLanguage)} value={code}
-            onChange={v => setCode(v || "")} loading={<div className="editor-loading"><LoaderCircle className="spin"/>加载编辑器…</div>}
+            onMount={editor=>{practiceEditorRef.current=editor;}}
+            onChange={v => updatePracticeCode(v || "")} loading={<div className="editor-loading"><LoaderCircle className="spin"/>加载编辑器…</div>}
             options={{ fontSize: 14, lineHeight: 23, minimap: { enabled: false }, automaticLayout: true, padding: { top: 16 }, scrollBeyondLastLine: false, wordWrap: "on", tabSize: 4 }} />:<PracticeWelcome/>}
         </div>
         <div className="submit-bar">
@@ -437,8 +492,9 @@ function App() {
           </>}
         </div> : <AssistancePanel user={user} evidence={submission||runResult} canGenerate={!!submission} assistance={assistance} loading={assistanceLoading} error={assistanceError} onRetry={()=>{if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}} generatedPractice={generatedPractice} generating={practiceGenerating} generationError={practiceGenerationError} onGenerate={generatePractice} onOpenGenerated={openGeneratedPractice} onNeedAuth={()=>setAuthOpen(true)}/>}
       </aside>
-    </div> : page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)} onOpenGenerated={openGeneratedPractice}/> :
-      <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/>}
+    </div>
+    {page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)} onOpenGenerated={openGeneratedPractice}/> : page === "self-practice" ?
+      <SelfPracticePage user={user} onNeedAuth={()=>setAuthOpen(true)} onExitGenerated={openFreePractice}/> : null}
     <AiWidget key={user.id} user={user} submissionId={submission?.id}/>
     {profileOpen&&<UserProfilePanel user={user} onClose={()=>setProfileOpen(false)} onSaved={profile=>{const next={...user,displayName:profile.displayName};setUser(next);authStore.updateUser(next);setUserAvatar(profile.avatarDataUrl);setProfileOpen(false);}}/>}
     {notice && <div className="toast"><CircleAlert size={17}/>{notice}<button onClick={() => setNotice("")}><X size={15}/></button></div>}

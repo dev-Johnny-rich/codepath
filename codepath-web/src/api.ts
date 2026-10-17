@@ -2,6 +2,9 @@ import type { AiGeneratedPractice, AiPracticeEvaluation, Assessment, CoachConver
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "";
 type Envelope<T> = { success: boolean; data: T; message?: string };
+type AuthData = { accessToken: string; refreshToken: string; user: User };
+
+export const AUTH_EXPIRED_EVENT = "codepath:auth-expired";
 
 export function discussionSocketUrl(): string {
   const url = new URL("/ws/discussions", BASE || window.location.origin);
@@ -11,8 +14,9 @@ export function discussionSocketUrl(): string {
 
 export const authStore = {
   token: () => localStorage.getItem("codepath_access_token"),
+  refreshToken: () => localStorage.getItem("codepath_refresh_token"),
   user: (): User | null => { try { return JSON.parse(localStorage.getItem("codepath_user") || "null"); } catch { return null; } },
-  save: (data: { accessToken: string; refreshToken: string; user: User }) => {
+  save: (data: AuthData) => {
     localStorage.setItem("codepath_access_token", data.accessToken);
     localStorage.setItem("codepath_refresh_token", data.refreshToken);
     localStorage.setItem("codepath_user", JSON.stringify(data.user));
@@ -21,7 +25,33 @@ export const authStore = {
   ,updateUser: (user:User) => localStorage.setItem("codepath_user",JSON.stringify(user))
 };
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+let refreshPromise: Promise<AuthData> | null = null;
+
+function expireSession() {
+  authStore.clear();
+  window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+}
+
+function refreshSession(refreshToken: string): Promise<AuthData> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const response = await fetch(`${BASE}/api/v1/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken })
+      });
+      const body = await response.json().catch(() => ({ success: false, message: "服务器响应异常" })) as Envelope<AuthData>;
+      if (!response.ok || !body.success || !body.data) {
+        throw new Error(body.message || `刷新登录状态失败 (${response.status})`);
+      }
+      authStore.save(body.data);
+      return body.data;
+    })().finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
   const token = authStore.token();
   const response = await fetch(`${BASE}${path}`, {
     ...options,
@@ -29,7 +59,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
   const body = await response.json().catch(() => ({ success: false, message: "服务器响应异常" })) as Envelope<T>;
   if (!response.ok || !body.success) {
-    if (response.status === 401) authStore.clear();
+    if (response.status === 401 && canRefresh && !path.startsWith("/api/v1/auth/")) {
+      const latestToken = authStore.token();
+      if (token && latestToken && latestToken !== token) {
+        return request<T>(path, options, false);
+      }
+      const refreshToken = authStore.refreshToken();
+      if (refreshToken) {
+        try {
+          await refreshSession(refreshToken);
+          return request<T>(path, options, false);
+        } catch {
+          expireSession();
+          throw new Error("登录已过期，请重新登录");
+        }
+      }
+      expireSession();
+    } else if (response.status === 401 && !canRefresh) {
+      expireSession();
+    }
     throw new Error(body.message || `请求失败 (${response.status})`);
   }
   return body.data;
