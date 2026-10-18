@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { Bot, ChevronRight, History, LoaderCircle, Maximize2, MessageSquarePlus, Send, Sparkles, X } from "lucide-react";
 import { api } from "./api";
 import type { CoachConversation, User } from "./types";
@@ -7,6 +7,22 @@ import "./ai-history.css";
 
 type ChatMessage = { role:"user"|"assistant"; content:string };
 const welcome:ChatMessage={role:"assistant",content:"嗨，我是 CodePath AI 教练。你可以问我代码报错、解题思路或编程知识。"};
+type WidgetPosition={right:number;bottom:number};
+
+function storedWidgetPosition(userId:number):WidgetPosition {
+  try {
+    const value=JSON.parse(localStorage.getItem(`codepath-ai-widget-position:${userId}`)||"null") as WidgetPosition|null;
+    if(value&&Number.isFinite(value.right)&&Number.isFinite(value.bottom))return value;
+  } catch { /* Ignore an invalid saved position. */ }
+  return {right:24,bottom:22};
+}
+
+function clampWidgetPosition(position:WidgetPosition):WidgetPosition {
+  return {
+    right:Math.max(8,Math.min(position.right,window.innerWidth-64)),
+    bottom:Math.max(8,Math.min(position.bottom,window.innerHeight-64))
+  };
+}
 
 export function AiWidget({user,submissionId}:{user:User;submissionId?:number}) {
   const [open,setOpen]=useState(false);
@@ -19,10 +35,19 @@ export function AiWidget({user,submissionId}:{user:User;submissionId?:number}) {
   const [input,setInput]=useState("");
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
+  const [position,setPosition]=useState<WidgetPosition>(()=>clampWidgetPosition(storedWidgetPosition(user.id)));
+  const [dragging,setDragging]=useState(false);
   const endRef=useRef<HTMLDivElement>(null);
+  const dragRef=useRef<{pointerId:number;x:number;y:number;right:number;bottom:number;moved:boolean}>();
+  const suppressClick=useRef(false);
 
   useEffect(()=>{if(open&&!historyOpen)endRef.current?.scrollIntoView({behavior:"smooth"});},[messages,loading,open,historyOpen]);
   useEffect(()=>{if(open)void loadHistory();},[open,user.id]);
+  useEffect(()=>{
+    const keepVisible=()=>setPosition(current=>clampWidgetPosition(current));
+    window.addEventListener("resize",keepVisible);
+    return()=>window.removeEventListener("resize",keepVisible);
+  },[]);
 
   async function loadHistory(){
     setHistoryLoading(true);setError("");
@@ -65,7 +90,36 @@ export function AiWidget({user,submissionId}:{user:User;submissionId?:number}) {
     finally{setLoading(false);}
   }
   function onKeyDown(e:KeyboardEvent<HTMLTextAreaElement>){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();void send();}}
-  return <div className={`ai-widget ${open?"open":""}`}>
+  function startDrag(e:ReactPointerEvent<HTMLButtonElement>){
+    if(e.button!==0)return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current={pointerId:e.pointerId,x:e.clientX,y:e.clientY,right:position.right,bottom:position.bottom,moved:false};
+    setDragging(true);
+  }
+  function moveDrag(e:ReactPointerEvent<HTMLButtonElement>){
+    const drag=dragRef.current;
+    if(!drag||drag.pointerId!==e.pointerId)return;
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;
+    setPosition(clampWidgetPosition({right:drag.right-dx,bottom:drag.bottom-dy}));
+  }
+  function endDrag(e:ReactPointerEvent<HTMLButtonElement>){
+    const drag=dragRef.current;
+    if(!drag||drag.pointerId!==e.pointerId)return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    dragRef.current=undefined;setDragging(false);
+    if(drag.moved){
+      const finalPosition=clampWidgetPosition({right:drag.right-(e.clientX-drag.x),bottom:drag.bottom-(e.clientY-drag.y)});
+      setPosition(finalPosition);
+      suppressClick.current=true;
+      localStorage.setItem(`codepath-ai-widget-position:${user.id}`,JSON.stringify(finalPosition));
+      requestAnimationFrame(()=>{suppressClick.current=false;});
+    }
+  }
+  const orbLeft=window.innerWidth-position.right-56;
+  const orbTop=window.innerHeight-position.bottom-56;
+  const placementClass=`${orbLeft<390?" chat-right":""}${orbTop<560?" chat-below":""}`;
+  return <div className={`ai-widget ${open?"open":""}${dragging?" dragging":""}${placementClass}`} style={{right:position.right,bottom:position.bottom}}>
     {open&&<section className="ai-chatbox" aria-label="AI 编程教练">
       <header className="ai-chat-head"><span><Bot size={20}/></span><div><b>{historyOpen?"历史对话":conversationTitle}</b><small><i/>{loading?"正在思考":"CodePath AI 教练"}</small></div><nav><button className={historyOpen?"active":""} title="历史对话" onClick={()=>{setHistoryOpen(value=>!value);if(!historyOpen)void loadHistory();}}><History size={16}/></button><button title="新建对话" onClick={newConversation}><MessageSquarePlus size={16}/></button></nav><button title="关闭" onClick={()=>setOpen(false)}><X size={17}/></button></header>
       <div className="ai-chat-context"><Sparkles size={13}/>{historyOpen?`已保存 ${conversations.length} 个对话`:submissionId?"已结合当前提交与错误证据":"可以询问编程知识和解题思路"}</div>
@@ -78,7 +132,7 @@ export function AiWidget({user,submissionId}:{user:User;submissionId?:number}) {
       {historyOpen?<div className="ai-history-action"><button onClick={newConversation}><MessageSquarePlus size={15}/>开始新对话</button></div>:<form className="ai-chat-input" onSubmit={send}><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={onKeyDown} maxLength={4000} placeholder="问问代码错在哪…"/><button disabled={loading||!input.trim()} title="发送"><Send size={16}/></button></form>}
       <div className="ai-chat-foot"><Maximize2 size={11}/><span>Enter 发送 · 对话已保存</span></div>
     </section>}
-    <button className="ai-orb" onClick={()=>setOpen(value=>!value)} aria-label={open?"关闭 AI 助手":"打开 AI 助手"}><span className="ai-orb-ring"/><span className="ai-orb-icon">{open?<X size={22}/>:<Bot size={24}/>}</span>{!open&&<i/>}</button>
+    <button className="ai-orb" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={()=>{if(!suppressClick.current)setOpen(value=>!value)}} aria-label={open?"关闭 AI 助手":"打开 AI 助手"} title="拖动移动 · 点击打开"><span className="ai-orb-ring"/><span className="ai-orb-icon">{open?<X size={22}/>:<Bot size={24}/>}</span>{!open&&<i/>}</button>
   </div>;
 }
 

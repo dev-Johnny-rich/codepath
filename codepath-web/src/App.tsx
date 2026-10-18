@@ -12,6 +12,8 @@ import { DiscussPage, InterviewPage } from "./CommunityPages";
 import { SelfPracticePage } from "./SelfPracticePage";
 import { LearningPlanPage } from "./LearningPlanPage";
 import { AiWidget } from "./AiWidget";
+import { CoachConversationPanel } from "./CoachConversationPanel";
+import { FocusTimer } from "./FocusTimer";
 import { WelcomePage } from "./WelcomePage";
 import { UserProfilePanel } from "./UserProfilePanel";
 import { parseServerDate } from "./date";
@@ -28,7 +30,7 @@ type PracticeWorkspaceDraft =
 const terminalStates = new Set(["COMPLETED", "FAILED"]);
 const PRACTICE_WORKSPACE_KEY_PREFIX = "codepath-practice-workspace";
 const GENERATED_PRACTICE_KEY_PREFIX = "codepath-generated-practice";
-const DEFAULT_PANEL_SIZES = { left: 250, right: 350, bottom: 235 };
+const DEFAULT_PANEL_SIZES = { left: 268, right: 410, bottom: 260 };
 const MIN_PANEL_SIZES = { left: 180, right: 260, bottom: 120, editor: 160, center: 420 };
 const RESIZER_SIZE = 8;
 const statusText: Record<string, string> = {
@@ -41,7 +43,7 @@ function difficulty(value: number) {
 }
 
 function storedPanelSize(key:keyof typeof DEFAULT_PANEL_SIZES) {
-  const value = Number(localStorage.getItem(`codepath-panel-${key}`));
+  const value = Number(localStorage.getItem(`codepath-panel-v2-${key}`));
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_PANEL_SIZES[key];
 }
 
@@ -156,6 +158,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [guestRun, setGuestRun] = useState(false);
   const [notice, setNotice] = useState("");
+  const [collapsedStages,setCollapsedStages]=useState<Set<number>>(()=>new Set());
   const [panelSizes, setPanelSizes] = useState(() => ({
     left: storedPanelSize("left"), right: storedPanelSize("right"), bottom: storedPanelSize("bottom")
   }));
@@ -225,9 +228,9 @@ function App() {
   },[user?.id]);
   useEffect(() => () => { if (pollRef.current) window.clearTimeout(pollRef.current); }, []);
   useEffect(() => {
-    localStorage.setItem("codepath-panel-left", String(Math.round(panelSizes.left)));
-    localStorage.setItem("codepath-panel-right", String(Math.round(panelSizes.right)));
-    localStorage.setItem("codepath-panel-bottom", String(Math.round(panelSizes.bottom)));
+    localStorage.setItem("codepath-panel-v2-left", String(Math.round(panelSizes.left)));
+    localStorage.setItem("codepath-panel-v2-right", String(Math.round(panelSizes.right)));
+    localStorage.setItem("codepath-panel-v2-bottom", String(Math.round(panelSizes.bottom)));
   }, [panelSizes]);
 
   function clamp(value:number,min:number,max:number) { return Math.min(Math.max(max,min),Math.max(min,value)); }
@@ -416,7 +419,13 @@ function App() {
   }
   function resetPractice() {
     if(!activeGeneratedPractice){
-      setCode(problem?.starterCode||templates[(problem?.language||"").toLowerCase()]||"");
+      if(pollRef.current)window.clearTimeout(pollRef.current);
+      const initialCode=problem?.starterCode||templates[(problem?.language||"").toLowerCase()]||"";
+      updatePracticeCode(initialCode);
+      setSubmission(undefined);setRunResult(undefined);setRunAccess(undefined);
+      setAssistance(undefined);setAssistanceError("");setHint("");setNotice("");setBusy(false);setGuestRun(false);
+      setPracticeEvaluation(undefined);setPracticeEvaluating(false);setPracticeEvaluationError("");
+      setTab("run");setSideTab("problem");
       return;
     }
     ++generatedRunEpoch.current;
@@ -451,6 +460,13 @@ function App() {
     persistPracticeWorkspace(practiceEditorRef.current?.getValue()??code);
     authStore.clear();setUser(null);setUserAvatar("");setProfileOpen(false);setHistory([]);setActivePlan(undefined);
   }
+  function toggleStage(stageId:number) {
+    setCollapsedStages(current=>{
+      const next=new Set(current);
+      if(next.has(stageId))next.delete(stageId);else next.add(stageId);
+      return next;
+    });
+  }
   const passed = submission && submission.totalCount > 0 && submission.passedCount === submission.totalCount;
   const coachResult = guestRun ? runResult : submission;
   const activeDiff = useMemo(() => difficulty(activeGeneratedPractice?.difficulty||problem?.difficulty||1), [problem,activeGeneratedPractice]);
@@ -464,7 +480,7 @@ function App() {
     <header>
       <div className="brand"><span className="brand-icon"><Code2 size={22}/></span><strong>CodePath</strong><span className="brand-tag">AI 编程教练</span></div>
       <nav className="top-nav"><button className={page==="practice"?"active":""} onClick={()=>setPage("practice")}>Practice</button><button className={page==="discuss"?"active":""} onClick={()=>setPage("discuss")}>Discuss</button><button className={page==="interview"?"active":""} onClick={()=>setPage("interview")}>Interview</button><button className={page==="self-practice"?"active":""} onClick={openFreePractice}>Self-Practice</button></nav>
-      {user ? <div className="user-menu"><button className="user-summary" title="打开用户信息" onClick={()=>setProfileOpen(true)}><span className="avatar">{userAvatar?<img src={userAvatar} alt=""/>:user.displayName.slice(0,1)}</span><span className="user-summary-copy"><b>{user.displayName}</b><small>学习者 · 查看资料</small></span></button><button className="icon-btn" title="退出" onClick={logout}><LogOut size={17}/></button></div>
+      {user ? <div className="user-menu"><FocusTimer userId={user.id}/><button className="user-summary" title="打开用户信息" onClick={()=>setProfileOpen(true)}><span className="avatar">{userAvatar?<img src={userAvatar} alt=""/>:user.displayName.slice(0,1)}</span><span className="user-summary-copy"><b>{user.displayName}</b><small>学习中 · 查看资料</small></span></button><button className="icon-btn" title="退出" onClick={logout}><LogOut size={17}/></button></div>
         : <button className="login-btn" onClick={() => setAuthOpen(true)}><LogIn size={17}/>登录 / 注册</button>}
     </header>
 
@@ -474,7 +490,18 @@ function App() {
       style={{gridTemplateColumns:`${panelSizes.left}px ${RESIZER_SIZE}px minmax(${MIN_PANEL_SIZES.center}px, 1fr) ${RESIZER_SIZE}px ${panelSizes.right}px`,display:page==="practice"?undefined:"none"}}>
       <aside className="problem-nav">
         <div className="nav-title"><BookOpen size={16}/><span>学习路径</span></div>
-        {activePlan?<><div className="path-plan-head"><span>{activePlan.courseName}</span><b>{activePlan.title}</b><button onClick={()=>setPage("plan")}>管理计划<ChevronRight size={13}/></button></div><div className="progress-card"><div><span>计划完成度</span><b>{Math.round(activePlan.planProgress*100)}%</b></div><div className="progress"><i style={{width:`${Math.round(activePlan.planProgress*100)}%`}}/></div><small>{activePlan.completedMinutes} / {activePlan.totalMinutes} 分钟任务权重</small></div><div className="path-stages">{activePlan.stages.map(stage=><section key={stage.id}><h4><span>W{stage.weekNumber}</span>{stage.title}</h4>{stage.items.map(item=><button key={item.id} className={item.status==="COMPLETED"?"done":""} onClick={()=>item.problemId?openPlanProblem(item.problemId):setPage("plan")}><i>{item.status==="COMPLETED"?<Check size={11}/>:null}</i><span><b>{item.title}</b><small>{item.taskType} · {item.estimatedMinutes} 分钟</small></span><ChevronRight size={13}/></button>)}</section>)}</div></>:<div className="path-empty"><Sparkles size={26}/><b>{user?"还没有学习计划":"登录后开启个性化路径"}</b><p>AI 会根据目标、时间和掌握度生成学习路径。</p><button onClick={()=>user?setPage("plan"):setAuthOpen(true)}>{user?"生成学习计划":"登录 / 注册"}</button></div>}
+        {activePlan?<>
+          <div className="path-plan-head"><span>{activePlan.courseName}</span><b>{activePlan.title}</b><button onClick={()=>setPage("plan")}>管理计划<ChevronRight size={13}/></button></div>
+          <div className="progress-card"><div><span>计划完成度</span><b>{Math.round(activePlan.planProgress*100)}%</b></div><div className="progress"><i style={{width:`${Math.round(activePlan.planProgress*100)}%`}}/></div><small>{activePlan.completedMinutes} / {activePlan.totalMinutes} 分钟任务权重</small></div>
+          <div className="path-stages">{activePlan.stages.map(stage=>{
+            const collapsed=collapsedStages.has(stage.id);
+            return <section key={stage.id} className={collapsed?"collapsed":""}>
+              <h4><span>W{stage.weekNumber}</span><b>{stage.title}</b><button type="button" aria-label={`${collapsed?"展开":"收起"} W${stage.weekNumber} ${stage.title}`} aria-expanded={!collapsed} onClick={()=>toggleStage(stage.id)}><ChevronRight size={14}/></button></h4>
+              {!collapsed&&stage.items.map(item=><button key={item.id} className={item.status==="COMPLETED"?"done":""} onClick={()=>item.problemId?openPlanProblem(item.problemId):setPage("plan")}><i>{item.status==="COMPLETED"?<Check size={11}/>:null}</i><span><b>{item.title}</b><small>{item.taskType} · {item.estimatedMinutes} 分钟</small></span><ChevronRight size={13}/></button>)}
+            </section>;
+          })}</div>
+          <div className="path-motto"><div className="path-motto-copy"><p>每一次报错，<br/>都是你变强的机会。</p><small>— CodePath</small></div><div className="path-mountains" aria-hidden="true"><i/><i/><i/></div></div>
+        </>:<div className="path-empty"><Sparkles size={26}/><b>{user?"还没有学习计划":"登录后开启个性化路径"}</b><p>AI 会根据目标、时间和掌握度生成学习路径。</p><button onClick={()=>user?setPage("plan"):setAuthOpen(true)}>{user?"生成学习计划":"登录 / 注册"}</button></div>}
       </aside>
 
       <div className="box-resizer vertical" role="separator" aria-label="调整学习路径区宽度" aria-orientation="vertical" aria-valuemin={MIN_PANEL_SIZES.left} aria-valuemax={900} aria-valuenow={Math.round(panelSizes.left)} tabIndex={0}
@@ -482,7 +509,7 @@ function App() {
         onPointerDown={event=>startResize("left",event)} onDoubleClick={()=>resetPanel("left")}
         onKeyDown={event=>{if(event.key==="ArrowLeft"){event.preventDefault();resizePanel("left",-20)}if(event.key==="ArrowRight"){event.preventDefault();resizePanel("left",20)}}}/>
 
-      <main className="coding-area resizable-coding-area" style={{gridTemplateRows:`48px minmax(${MIN_PANEL_SIZES.editor}px, 1fr) 54px ${RESIZER_SIZE}px ${panelSizes.bottom}px`}}>
+      <main className="coding-area resizable-coding-area" style={{gridTemplateRows:`58px minmax(${MIN_PANEL_SIZES.editor}px, 1fr) 0 ${RESIZER_SIZE}px ${panelSizes.bottom}px`}}>
         <div className="editor-head">
           <div><span className="file-dot"/><b>{activeTitle}</b>{activeGeneratedPractice&&<span className="ai-source-badge"><Sparkles size={11}/>AI 生成</span>}{hasExercise&&<span className={`difficulty ${activeDiff[1]}`}>{activeDiff[0]}</span>}</div>
           {hasExercise&&<div className="editor-actions"><span className="language-pill">{activeLanguage}</span><button onClick={resetPractice} title={activeGeneratedPractice?"退出 AI 练习并返回欢迎界面":"恢复初始代码"}><RotateCcw size={15}/>重置</button></div>}
@@ -514,22 +541,15 @@ function App() {
         onPointerDown={event=>startResize("right",event)} onDoubleClick={()=>resetPanel("right")}
         onKeyDown={event=>{if(event.key==="ArrowLeft"){event.preventDefault();resizePanel("right",20)}if(event.key==="ArrowRight"){event.preventDefault();resizePanel("right",-20)}}}/>
 
-      <aside className="detail-panel">
+      <aside className={`detail-panel side-${sideTab}`}>
         <div className="side-tabs"><button className={sideTab === "problem" ? "active" : ""} onClick={() => setSideTab("problem")}><BookOpen size={15}/>题目</button><button className={sideTab === "coach" ? "active" : ""} onClick={() => setSideTab("coach")}><Bot size={15}/>AI 教练</button><button className={sideTab === "assist" ? "active" : ""} onClick={() => {setSideTab("assist");if(!assistance){if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}}}><BookMarked size={15}/>辅助学习</button></div>
         {sideTab === "problem" ? !hasExercise?<ProblemWelcome/>:<div className="problem-copy">
           <div className="problem-heading"><span>{activeGeneratedPractice?"AI 专项练习":`题目 ${problem?.id || "--"}`}</span><h1>{activeTitle}</h1><div>{activeGeneratedPractice?<span><Sparkles size={13}/>{activeGeneratedPractice.modelName}</span>:<><span><Clock3 size={13}/>{problem?.timeLimitMs || 0} ms</span><span>{problem?.memoryLimitMb || 0} MB</span></>}</div></div>
           <Article text={activeGeneratedPractice?.description||problem?.description}/><h3>输入说明</h3><Article text={activeGeneratedPractice?.inputDescription||problem?.inputDescription}/><h3>输出说明</h3><Article text={activeGeneratedPractice?.outputDescription||problem?.outputDescription}/>
           {activeGeneratedPractice?<><h3>公开运行示例</h3><div className="public-examples">{activeGeneratedPractice.publicExamples.map((example,index)=><div className="example-card" key={example.id}><b>示例 {index+1}</b><label>输入</label><pre>{example.input||"(空输入)"}</pre><label>期望输出</label><pre>{example.expectedOutput}</pre></div>)}</div><p className="no-example">共 {activeGeneratedPractice.totalTestCases} 个确定性测试点，其余为隐藏用例。</p><div className="generated-knowledge"><strong>本题练习</strong>{activeGeneratedPractice.knowledgePoints.map(item=><span key={item.id}>{item.name}</span>)}</div><div className="ai-evaluation-note"><Bot size={17}/><span>沙箱测试决定对错；AI 只解释错因。同一题只有首次完成评测会更新 BKT。</span></div></>:<><h3>公开运行示例</h3>{examplesLoading ? <p className="example-state"><LoaderCircle className="spin" size={13}/>正在加载示例…</p> : examples.length ? <div className="public-examples">{examples.map((example,index)=><div className="example-card" key={example.id}><b>示例 {index+1}</b><label>输入</label><pre>{example.input || "(空输入)"}</pre><label>期望输出</label><pre>{example.expectedOutput}</pre></div>)}</div> : examplesError ? <div className="example-error"><span>{examplesError}</span><button onClick={()=>problem&&loadExamples(problem.id)}>重试</button></div> : <p className="no-example">教师尚未配置公开示例</p>}</>}
-        </div> : sideTab === "coach" ? <div className="coach-panel">
-          <div className="coach-intro"><span><Bot size={22}/></span><div><b>CodePath Coach</b><small>基于你的代码和运行证据</small></div></div>
-          {activeGeneratedPractice?<AiPracticeCoach evaluation={practiceEvaluation} evaluating={practiceEvaluating} error={practiceEvaluationError} hasRun={!!runResult} onRetry={()=>runResult&&evaluateGeneratedPractice(activeGeneratedPractice,runResult,generatedRunEpoch.current)}/>:<>
-            {!coachResult?.diagnosis && !hint && <div className="coach-empty"><Sparkles size={30}/><b>先运行或提交一次代码</b><p>AI 会诊断根因，并引导你自己解决。</p></div>}
-            {coachResult?.diagnosis && <div className="diagnosis-card"><span className="diagnosis-label">诊断 · {coachResult.diagnosis.errorType}</span><h3>{coachResult.diagnosis.rootCause}</h3><p>{coachResult.diagnosis.explanation}</p><small>置信度 {Math.round((coachResult.diagnosis.confidence || 0) * 100)}% · {coachResult.diagnosis.modelName}</small></div>}
-            {submission && !guestRun && <div className="hints"><h3><Lightbulb size={16}/>分层提示</h3><p>先独立思考，卡住时再逐层打开。</p><div>{[1,2,3].map(n => <button key={n} onClick={() => getHint(n)} disabled={!!hintLoading}>{hintLoading === n ? <LoaderCircle className="spin" size={15}/> : n}<span>{["方向提示","定位错误","伪代码引导"][n-1]}</span></button>)}</div></div>}
-            {runResult && guestRun && <div className="guest-note"><Sparkles size={16}/><div><b>快速运行结果</b><p>如需保存此次结果到提交历史和 Interview 档案，请点击“提交评测”。</p></div></div>}
-            {hint && <div className="hint-answer"><div><Sparkles size={15}/><b>AI 提示</b></div><p>{hint}</p></div>}
-          </>}
-        </div> : <AssistancePanel user={user} evidence={submission||runResult} canGenerate={!!submission} assistance={assistance} loading={assistanceLoading} error={assistanceError} onRetry={()=>{if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}} generatedPractice={generatedPractice} generating={practiceGenerating} generationError={practiceGenerationError} onGenerate={generatePractice} onOpenGenerated={openGeneratedPractice} onNeedAuth={()=>setAuthOpen(true)}/>}
+        </div> : sideTab === "coach"
+          ? <CoachConversationPanel key={`${user.id}:${problem?.id||activeGeneratedPractice?.id||"practice"}`} user={user} submissionId={submission?.id} problemTitle={activeTitle} diagnosis={coachResult?.diagnosis?.rootCause}/>
+          : <AssistancePanel user={user} evidence={submission||runResult} canGenerate={!!submission} assistance={assistance} loading={assistanceLoading} error={assistanceError} onRetry={()=>{if(submission)loadAssistance(submission.id);else if(runAccess)loadRunAssistance(runAccess.id,runAccess.token)}} generatedPractice={generatedPractice} generating={practiceGenerating} generationError={practiceGenerationError} onGenerate={generatePractice} onOpenGenerated={openGeneratedPractice} onNeedAuth={()=>setAuthOpen(true)}/>}
       </aside>
     </div>
     {page === "plan" ? <LearningPlanPage user={user} initialCourseId={courseId} activePlan={activePlan} onNeedAuth={()=>setAuthOpen(true)} onOpenProblem={openPlanProblem} onOpenGenerated={openGeneratedPractice} onPlanChange={setActivePlan}/> : page === "discuss" ? <DiscussPage user={user} problems={problems} onNeedAuth={()=>setAuthOpen(true)}/> : page === "interview" ? <InterviewPage key={interviewKey} user={user} onNeedAuth={()=>setAuthOpen(true)} onOpenGenerated={openGeneratedPractice}/> : page === "self-practice" ?

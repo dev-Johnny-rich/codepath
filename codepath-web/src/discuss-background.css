@@ -1,0 +1,36 @@
+.discuss-page {
+  position: relative;
+  background-color: #f6f0e4;
+  background-image: url("./assets/discuss-background.png");
+  background-position: center center;
+  background-size: cover;
+  background-attachment: local;
+  background-repeat: no-repeat;
+}
+
+.discuss-page .feature-hero {
+  border-color: rgba(183, 166, 143, .58);
+  background: rgba(255, 251, 244, .28);
+  backdrop-filter: blur(2px);
+}
+
+.discuss-page .discuss-layout {
+  background: transparent;
+}
+
+.discuss-page .discussion-filter {
+  border-color: rgba(183, 166, 143, .5);
+  background: rgba(255, 251, 244, .46);
+  backdrop-filter: blur(6px);
+}
+
+.discuss-page .discussion-feed {
+  background: transparent;
+}
+
+.discuss-page .post-card,
+.discuss-page .discuss-note,
+.discuss-page .feed-tools > div {
+  background: rgba(255, 250, 242, .82);
+  backdrop-filter: blur(7px);
+}

@@ -11,6 +11,8 @@ import "./ai-widget.css";
 import "./welcome.css";
 import "./welcome-responsive.css";
 import "./cream-theme.css";
+import "./workspace-redesign.css";
+import "./discuss-background.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode><App /></React.StrictMode>

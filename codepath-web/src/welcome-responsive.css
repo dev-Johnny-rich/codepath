@@ -9,8 +9,127 @@
   padding: 32px 38px;
 }
 
+.welcome-demo {
+  width: min(680px, 94%);
+  height: 196px;
+  margin-top: 4.5vh;
+}
+
+.demo-editor {
+  width: 76%;
+}
+
+.demo-diagnosis {
+  right: 2%;
+  bottom: 2px;
+  width: 55%;
+}
+
 .welcome-auth {
-  padding: 34px 4vw;
+  position: relative;
+  overflow: hidden;
+  padding: 34px clamp(20px, 3.2vw, 52px);
+  isolation: isolate;
+}
+
+.welcome-auth::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 520px;
+  height: 520px;
+  right: -230px;
+  top: -190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #c67c5930 0, #d99c7520 35%, transparent 70%);
+}
+
+.auth-shell {
+  position: relative;
+  width: min(460px, 100%);
+  padding: clamp(26px, 3vw, 38px);
+  border: 1px solid #d8c5b1;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #fffaf3f2, #f4e7d8ee);
+  box-shadow: 0 28px 70px #70503b1f, 0 2px 8px #70503b12;
+}
+
+.auth-shell::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 34px;
+  right: 34px;
+  height: 3px;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(90deg, #276f5b, #c57450);
+}
+
+.auth-heading>span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid #deb9a5;
+  border-radius: 999px;
+  background: #fff4e9;
+}
+
+.auth-heading h2 {
+  margin-top: 12px;
+  font-size: clamp(32px, 3vw, 38px);
+  letter-spacing: -1.4px;
+}
+
+.auth-heading p {
+  font-size: 12px;
+}
+
+.auth-mode {
+  margin: 32px 0 23px;
+  padding: 5px;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 3px #7d5d4710;
+}
+
+.auth-mode button {
+  height: 39px;
+  font-size: 12px;
+}
+
+.welcome-form {
+  gap: 16px;
+}
+
+.welcome-form label {
+  font-size: 11px;
+}
+
+.welcome-form input {
+  height: 50px;
+  margin-top: 8px;
+  padding: 0 15px;
+  border-radius: 12px;
+  font-size: 12px;
+  box-shadow: inset 0 1px 2px #6a4c3810;
+}
+
+.password-field button {
+  top: 17px;
+}
+
+.welcome-submit {
+  height: 52px;
+  margin-top: 7px;
+  border-radius: 13px;
+  box-shadow: 0 16px 34px #7d493540;
+  font-size: 12px;
+}
+
+.auth-security {
+  margin-top: 22px;
+  padding-top: 17px;
+  border-top: 1px solid #dfcfbe;
 }
 
 @media (max-width: 880px) {
@@ -25,5 +144,10 @@
 
   .welcome-auth {
     min-height: 100vh;
+    padding: 28px 20px;
+  }
+
+  .auth-shell {
+    width: min(470px, 100%);
   }
 }
