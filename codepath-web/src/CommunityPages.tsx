@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { api, discussionSocketUrl } from "./api";
-import type { AiGeneratedPractice, CoachMessage, DiscussionPost, GeneratedQuestionSummary, Problem, User } from "./types";
+import type { AiGeneratedPractice, Assessment, CoachMessage, DiscussionPost, GeneratedQuestionSummary, Problem, User } from "./types";
 import { parseServerDate } from "./date";
-import { ArrowLeft, Bot, BrainCircuit, ChevronRight, CircleAlert, Eye, LoaderCircle, MessageCircle, Plus, Search, Send, Sparkles, Target, X } from "lucide-react";
+import { ArrowLeft, Bot, BrainCircuit, Check, ChevronRight, CircleAlert, Clock3, Eye, LoaderCircle, MessageCircle, Plus, Search, Send, Sparkles, Target, Trophy, X } from "lucide-react";
+
+const INTERVIEW_START_PROMPT = "请开始一场计算机科学与技术综合模拟面试。范围应覆盖并轮换考察数据结构与算法、操作系统、计算机网络、数据库、计算机组成原理、软件工程与通用编程基础；不要默认绑定某一种编程语言。请先简短介绍面试规则，然后只问第一个问题，等待我回答。";
+
+function isInterviewStartPrompt(content:string) {
+  return content===INTERVIEW_START_PROMPT||content.startsWith("请开始一场 Python 编程技术面试");
+}
 
 export function DiscussPage({user,problems,onNeedAuth}:{user:User|null;problems:Problem[];onNeedAuth:()=>void}){
   const [posts,setPosts]=useState<DiscussionPost[]>([]),[selected,setSelected]=useState<DiscussionPost>(),[loading,setLoading]=useState(true);
@@ -47,6 +53,7 @@ export function DiscussPage({user,problems,onNeedAuth}:{user:User|null;problems:
 
 export function InterviewPage({user,onNeedAuth,onOpenGenerated}:{user:User|null;onNeedAuth:()=>void;onOpenGenerated:(item:AiGeneratedPractice)=>void}){
   const [questions,setQuestions]=useState<GeneratedQuestionSummary[]>([]),[loading,setLoading]=useState(false),[opening,setOpening]=useState<number>(),[error,setError]=useState("");
+  const [assessments,setAssessments]=useState<Assessment[]>([]),[archiveLoading,setArchiveLoading]=useState(false),[archiveError,setArchiveError]=useState(""),[selectedAssessment,setSelectedAssessment]=useState<Assessment>();
   const [conversationId,setConversationId]=useState<number>(),[messages,setMessages]=useState<CoachMessage[]>([]),[answer,setAnswer]=useState(""),[starting,setStarting]=useState(false),[sending,setSending]=useState(false);
   const chatEndRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{
@@ -59,6 +66,11 @@ export function InterviewPage({user,onNeedAuth,onOpenGenerated}:{user:User|null;
       else{setConversationId(undefined);setMessages([])}
     }).catch(e=>setError(e instanceof Error?e.message:"面试官加载失败")).finally(()=>setLoading(false));
   },[user?.id]);
+  useEffect(()=>{
+    if(!user){setAssessments([]);setSelectedAssessment(undefined);return}
+    setArchiveLoading(true);setArchiveError("");
+    api.assessments().then(setAssessments).catch(e=>setArchiveError(e instanceof Error?e.message:"学习档案加载失败")).finally(()=>setArchiveLoading(false));
+  },[user?.id]);
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth",block:"nearest"})},[messages,sending]);
   async function openQuestion(id:number){setOpening(id);setError("");try{onOpenGenerated(await api.generatedPractice(id))}catch(e){setError(e instanceof Error?e.message:"题目打开失败")}finally{setOpening(undefined)}}
   async function startInterview(){
@@ -66,7 +78,7 @@ export function InterviewPage({user,onNeedAuth,onOpenGenerated}:{user:User|null;
     try{
       const conversation=await api.createCoachConversation(undefined,"AI 模拟面试");
       setConversationId(conversation.id);
-      const response=await api.sendCoachMessage(conversation.id,"请开始一场 Python 编程技术面试。请先简短介绍面试规则，然后只问第一个问题，等待我回答。");
+      const response=await api.sendCoachMessage(conversation.id,INTERVIEW_START_PROMPT);
       setMessages([{id:Date.now(),role:"assistant",content:response.content,modelName:response.modelName,createdAt:new Date().toISOString()}]);
     }catch(e){setConversationId(undefined);setError(e instanceof Error?e.message:"面试启动失败")}finally{setStarting(false)}
   }
@@ -79,12 +91,17 @@ export function InterviewPage({user,onNeedAuth,onOpenGenerated}:{user:User|null;
     }catch(e){setError(e instanceof Error?e.message:"面试官暂时无法回复")}finally{setSending(false)}
   }
   if(!user)return <div className="feature-page locked-page"><div><Bot size={42}/><h1>AI 模拟面试官</h1><p>登录后进行技术问答、追问和能力总结。</p><button className="primary" onClick={onNeedAuth}>登录开始</button></div></div>;
-  const visibleMessages=messages.filter(message=>!(message.role==="user"&&message.content.startsWith("请开始一场 Python 编程技术面试")));
+  const archiveStats={total:assessments.length,passed:assessments.filter(item=>item.total_count>0&&item.passed_count===item.total_count).length,avg:assessments.length?Math.round(assessments.reduce((sum,item)=>sum+(item.total_count?item.passed_count/item.total_count:0),0)/assessments.length*100):0};
+  const visibleMessages=messages.filter(message=>!(message.role==="user"&&isInterviewStartPrompt(message.content)));
   return <div className="feature-page interview-page"><div className="feature-hero interview-hero"><div><span className="eyebrow"><Bot size={14}/> AI INTERVIEWER</span><h1>{user.displayName}，准备好开始技术面试了吗？</h1><p>AI 面试官会逐题提问、针对回答追问，并在结束时给出具体反馈。</p></div><button className="primary" disabled={starting} onClick={startInterview}>{starting?<LoaderCircle className="spin" size={17}/>:<Plus size={17}/>} {conversationId?"开始新面试":"开始面试"}</button></div>
-    <section className="interviewer-section"><aside className="interviewer-guide"><span className="interviewer-avatar"><BrainCircuit size={31}/></span><small>CODEPATH INTERVIEWER</small><h2>AI 技术面试官</h2><p>一次只问一题，会根据你的回答动态调整难度。</p><ul><li>基础概念与 Python 语法</li><li>算法思路与复杂度</li><li>调试、边界与工程思维</li></ul>{conversationId&&visibleMessages.length>0&&<button onClick={()=>sendAnswer("请结束本次面试，根据我的所有回答，总结优势、待提升点和下一步建议。")} disabled={sending}>结束并生成总结</button>}</aside>
+    <section className="interviewer-section"><aside className="interviewer-guide"><span className="interviewer-avatar"><BrainCircuit size={31}/></span><small>CODEPATH INTERVIEWER</small><h2>AI 综合技术面试官</h2><p>一次只问一题，会根据你的回答动态调整方向与难度。</p><ul><li>数据结构与算法</li><li>操作系统与计算机网络</li><li>数据库、组成原理与软件工程</li></ul>{conversationId&&visibleMessages.length>0&&<button onClick={()=>sendAnswer("请结束本次面试，根据我的所有回答，按计算机专业知识领域总结优势、待提升点和下一步建议。")} disabled={sending}>结束并生成总结</button>}</aside>
       <div className="interviewer-chat"><header><div><span className={conversationId?"online":""}/><b>{conversationId?"面试进行中":"尚未开始"}</b></div><small>回答不需要完美，请展示你的思考过程</small></header><div className="interview-messages">{loading?<div className="interview-empty"><LoaderCircle className="spin"/>正在加载面试会话…</div>:visibleMessages.length===0?<div className="interview-empty"><Bot/><b>这里是你的模拟面试室</b><p>点击“开始面试”，AI 面试官会给出第一个问题。</p></div>:visibleMessages.map(message=><article className={`interview-message ${message.role}`} key={message.id}><span>{message.role==="assistant"?<Bot size={17}/>:user.displayName.slice(0,1)}</span><div><small>{message.role==="assistant"?"AI 面试官":"我"}</small><p>{message.content}</p></div></article>)}{sending&&<article className="interview-message assistant"><span><Bot size={17}/></span><div><small>AI 面试官</small><p className="interview-typing"><i/><i/><i/></p></div></article>}<div ref={chatEndRef}/></div><div className="interview-composer"><textarea value={answer} onChange={e=>setAnswer(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendAnswer()}}} disabled={!conversationId||starting} placeholder={conversationId?"说出你的结论和思考过程…":"开始面试后在这里回答"}/><button onClick={()=>sendAnswer()} disabled={!conversationId||!answer.trim()||sending}><Send size={17}/></button></div></div>
     </section>
     <section className="generated-question-section"><div className="section-head"><div><b>AI 生成题</b><span>自动同步最近 10 道，点击即可进入 Practice 作答</span></div><em>{questions.length}/10</em></div>{loading?<div className="feature-loading"><LoaderCircle className="spin"/>正在同步 AI 题目…</div>:questions.length===0?<div className="feature-empty compact"><Sparkles/><b>还没有 AI 生成题</b></div>:<div className="generated-question-grid">{questions.map(question=><button key={question.id} onClick={()=>openQuestion(question.id)} disabled={opening===question.id}><span><Sparkles size={15}/></span><div><small>{question.source_type==="KNOWLEDGE_TEST"?"计划知识测试":"AI 专项练习"}</small><b>{question.title}</b><p>{question.language.toUpperCase()} · 难度 {question.difficulty} · {question.attempt_count?`已评测 ${question.attempt_count} 次`:"待作答"}</p></div>{opening===question.id?<LoaderCircle className="spin" size={15}/>:<ChevronRight size={15}/>}</button>)}</div>}</section>
+    <section className="learning-archive-section" aria-label="学习档案"><div className="learning-archive-heading"><span className="eyebrow"><Target size={14}/> LEARNING ARCHIVE</span><h2>学习档案</h2><p>每一次代码评测都会沉淀在这里，帮助你回看结果、AI 诊断和进步轨迹。</p></div><div className="stat-grid"><div><span><Target/></span><small>总测评次数</small><b>{archiveStats.total}</b></div><div><span><Trophy/></span><small>全部通过</small><b>{archiveStats.passed}</b></div><div><span><Sparkles/></span><small>平均通过率</small><b>{archiveStats.avg}%</b></div></div>
+      <div className="assessment-section"><div className="section-head"><div><b>测评时间线</b><span>按最新提交排序</span></div></div>{archiveLoading?<div className="feature-loading"><LoaderCircle className="spin"/>正在整理学习档案…</div>:archiveError?<div className="feature-empty"><CircleAlert/><b>学习档案加载失败</b><p>{archiveError}</p></div>:assessments.length===0?<div className="feature-empty"><Target/><b>还没有测评记录</b><p>去 Practice 完成第一次代码评测。</p></div>:<div className="assessment-table"><div className="assessment-row table-head"><span>结果</span><span>题目</span><span>语言</span><span>通过率</span><span>耗时</span><span>AI 诊断</span><span>时间</span><span/></div>{assessments.map(item=>{const ok=item.total_count>0&&item.passed_count===item.total_count;return <button className="assessment-row" key={`${item.assessment_type}-${item.id}`} onClick={()=>setSelectedAssessment(item)}><span className={ok?"assessment-ok":"assessment-bad"}>{ok?<Check size={16}/>:<CircleAlert size={16}/>}</span><span><b>{item.problem_title}</b><small>{item.assessment_type==="KNOWLEDGE_TEST"?"计划知识测试":item.assessment_type==="AI_PRACTICE"?"AI 练习":"标准评测"} · #{item.id}</small></span><span className="language-pill">{item.language}</span><span>{item.passed_count}/{item.total_count}</span><span>{item.runtime_ms||0} ms</span><span>{item.error_type||"无错误"}</span><span>{parseServerDate(item.created_at).toLocaleDateString("zh-CN")}</span><ChevronRight size={15}/></button>})}</div>}</div>
+    </section>
+    {selectedAssessment&&<div className="assessment-detail"><button className="drawer-back" onClick={()=>setSelectedAssessment(undefined)}><ArrowLeft size={16}/>返回档案</button><div className="assessment-report"><span className="eyebrow">ASSESSMENT #{selectedAssessment.id}</span><h1>{selectedAssessment.problem_title}</h1><div className="report-score"><b>{selectedAssessment.total_count?Math.round(selectedAssessment.passed_count/selectedAssessment.total_count*100):0}</b><span>通过率</span></div><div className="report-facts"><span><Clock3/>{selectedAssessment.runtime_ms||0} ms<small>执行耗时</small></span><span><Target/>{selectedAssessment.passed_count}/{selectedAssessment.total_count}<small>测试点</small></span><span><Bot/>{selectedAssessment.model_name||"Rule Engine"}<small>诊断模型</small></span></div>{selectedAssessment.root_cause&&<div className="report-diagnosis"><span><Bot size={17}/> AI 测评观察</span><h3>{selectedAssessment.error_type}</h3><p>{selectedAssessment.root_cause}</p>{selectedAssessment.confidence!=null&&<small>诊断置信度 {Math.round(selectedAssessment.confidence*100)}%</small>}</div>}</div></div>}
     {error&&<div className="toast"><CircleAlert size={16}/>{error}<button onClick={()=>setError("")}><X size={14}/></button></div>}
   </div>
 }
